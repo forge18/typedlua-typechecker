@@ -5,7 +5,6 @@ pub mod fs;
 mod generics;
 mod helpers;
 pub mod module_resolver;
-mod narrowing;
 mod narrowing_integration;
 mod state;
 mod stdlib;
@@ -26,7 +25,7 @@ pub use generics::{
     build_substitutions, check_type_constraints, infer_type_arguments,
     instantiate_function_declaration, instantiate_type,
 };
-pub use narrowing::{narrow_type_from_condition, NarrowingContext};
+pub use visitors::{narrow_type_from_condition, NarrowingContext};
 pub use state::TypeCheckerState;
 pub use symbol_table::{
     Scope, SerializableSymbol, SerializableSymbolTable, Symbol, SymbolKind, SymbolTable,

@@ -1,8 +1,9 @@
 mod access_control;
 mod inference;
+mod narrowing;
 
 // GenericVisitor types are available from typechecker::generics module directly
-pub use super::narrowing::{NarrowingContext, NarrowingVisitor, TypeNarrower};
+pub use narrowing::{narrow_type_from_condition, NarrowingContext, NarrowingVisitor, TypeNarrower};
 pub use access_control::{
     AccessControl, AccessControlVisitor, ClassContext, ClassMemberInfo, ClassMemberKind,
 };

@@ -6,6 +6,7 @@ mod tests {
         AccessControl, TypeCheckVisitor, TypeInferenceVisitor, TypeInferrer,
     };
     use crate::diagnostics::{CollectingDiagnosticHandler, DiagnosticHandler};
+    use crate::NarrowingContext;
     use std::sync::Arc;
     use typedlua_parser::ast::expression::*;
     use typedlua_parser::ast::types::*;
@@ -17,7 +18,7 @@ mod tests {
     fn create_test_inferrer<'a>(
         symbol_table: &'a mut SymbolTable,
         type_env: &'a mut TypeEnvironment,
-        narrowing_context: &'a mut super::super::super::super::narrowing::NarrowingContext,
+        narrowing_context: &'a mut NarrowingContext,
         access_control: &'a AccessControl,
         interner: &'a StringInterner,
         diagnostic_handler: &'a Arc<dyn DiagnosticHandler>,
@@ -37,7 +38,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
             Arc::new(CollectingDiagnosticHandler::new());
@@ -69,7 +70,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -102,7 +103,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -138,7 +139,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -187,7 +188,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -236,7 +237,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -279,7 +280,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -322,7 +323,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -370,7 +371,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -403,7 +404,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -456,7 +457,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -505,7 +506,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
             Arc::new(CollectingDiagnosticHandler::new());
@@ -531,7 +532,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -564,7 +565,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -618,7 +619,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -653,7 +654,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -702,7 +703,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -751,7 +752,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -800,7 +801,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -849,7 +850,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -898,7 +899,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -948,7 +949,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -998,7 +999,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1042,7 +1043,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1085,7 +1086,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1134,7 +1135,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1193,7 +1194,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1226,7 +1227,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
             Arc::new(CollectingDiagnosticHandler::new());
@@ -1277,7 +1278,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1326,7 +1327,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1375,7 +1376,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1424,7 +1425,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1473,7 +1474,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1522,7 +1523,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1572,7 +1573,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1641,7 +1642,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1706,7 +1707,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1771,7 +1772,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1813,7 +1814,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1855,7 +1856,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1896,7 +1897,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -1978,7 +1979,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -2027,7 +2028,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -2086,7 +2087,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -2154,7 +2155,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -2219,7 +2220,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
@@ -2262,7 +2263,7 @@ mod tests {
         let interner = StringInterner::new();
         let mut symbol_table = SymbolTable::new();
         let mut type_env = TypeEnvironment::new();
-        let mut narrowing_context = super::super::super::super::narrowing::NarrowingContext::new();
+        let mut narrowing_context = NarrowingContext::new();
         let access_control = AccessControl::new();
 
         let diagnostic_handler: Arc<dyn DiagnosticHandler> =
