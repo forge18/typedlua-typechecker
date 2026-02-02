@@ -1,0 +1,29 @@
+# Rust
+/target
+**/*.rs.bk
+*.pdb
+Cargo.lock
+
+# Debug builds
+debug/
+
+# Release builds
+release/
+
+# Backup files
+**/*~
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CLAUDE.md at all levels
+CLAUDE.md
+**/CLAUDE.md
