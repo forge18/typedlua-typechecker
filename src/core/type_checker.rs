@@ -93,6 +93,55 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
+    /// Create a new TypeChecker using dependency injection container.
+    ///
+    /// This constructor resolves dependencies from the provided DI container,
+    /// enabling better testability and modularity.
+    ///
+    /// # Arguments
+    ///
+    /// * `container` - The dependency injection container
+    /// * `interner` - String interner for efficient string handling
+    /// * `common` - Common identifiers (keywords, built-in types, etc.)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let container = DiContainer::new();
+    /// let checker = TypeChecker::new_with_di(&container, &interner, &common);
+    /// ```
+    pub fn new_with_di(
+        container: &mut crate::DiContainer,
+        interner: &'a typedlua_parser::string_interner::StringInterner,
+        common: &'a typedlua_parser::string_interner::CommonIdentifiers,
+    ) -> Self {
+        let diagnostic_handler = container
+            .resolve::<Arc<dyn DiagnosticHandler>>()
+            .expect("DiagnosticHandler must be registered in DI container");
+        let options = container.resolve::<CompilerOptions>().unwrap_or_default();
+
+        Self {
+            symbol_table: SymbolTable::new(),
+            type_env: TypeEnvironment::new(),
+            current_function_return_type: None,
+            narrowing: TypeNarrower::new(),
+            options,
+            access_control: AccessControl::new(),
+            module_registry: None,
+            current_module_id: None,
+            module_resolver: None,
+            module_dependencies: Vec::new(),
+            in_catch_block: Vec::new(),
+            current_namespace: None,
+            class_type_params: FxHashMap::default(),
+            class_parents: FxHashMap::default(),
+            exported_names: std::collections::HashSet::new(),
+            diagnostic_handler,
+            interner,
+            common,
+        }
+    }
+
     /// Create a new TypeChecker with the standard library loaded.
     ///
     /// This is a convenience method that combines `new()` and `with_stdlib()`.

@@ -111,6 +111,68 @@ impl<'a> TypeCheckerState<'a> {
         state
     }
 
+    /// Create a new type checker state using dependency injection container
+    ///
+    /// # Arguments
+    ///
+    /// * `container` - The dependency injection container
+    /// * `interner` - String interner for efficient string handling
+    /// * `common` - Common identifiers (keywords, built-in types, etc.)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let container = DiContainer::new();
+    /// let state = TypeCheckerState::new_with_di(&container, &interner, &common);
+    /// ```
+    pub fn new_with_di(
+        container: &mut crate::DiContainer,
+        interner: &'a StringInterner,
+        common: &'a CommonIdentifiers,
+    ) -> Self {
+        let diagnostic_handler = container
+            .resolve::<Arc<dyn DiagnosticHandler>>()
+            .expect("DiagnosticHandler must be registered in DI container");
+        let options = container.resolve::<CompilerOptions>().unwrap_or_default();
+
+        Self {
+            symbol_table: SymbolTable::new(),
+            type_env: TypeEnvironment::new(),
+            current_function_return_type: None,
+            narrowing: TypeNarrower::new(),
+            access_control: AccessControl::new(),
+            options,
+            diagnostic_handler,
+            interner,
+            common,
+            module_registry: None,
+            current_module_id: None,
+            module_resolver: None,
+            module_dependencies: Vec::new(),
+            in_catch_block: Vec::new(),
+            current_namespace: None,
+            class_type_params: FxHashMap::default(),
+            class_parents: FxHashMap::default(),
+            exported_names: HashSet::new(),
+        }
+    }
+
+    /// Create a new type checker state with module support using DI
+    pub fn new_with_module_support_di(
+        container: &mut crate::DiContainer,
+        interner: &'a StringInterner,
+        common: &'a CommonIdentifiers,
+        module_registry: Arc<ModuleRegistry>,
+        current_module_id: ModuleId,
+        module_resolver: Arc<ModuleResolver>,
+    ) -> Self {
+        let mut state = Self::new_with_di(container, interner, common);
+        state.module_registry = Some(module_registry);
+        state.current_module_id = Some(current_module_id);
+        state.module_resolver = Some(module_resolver);
+        state
+    }
+
     /// Get the current module ID as a string reference
     pub fn current_module_id_str(&self) -> Option<&str> {
         self.current_module_id.as_ref().map(|id| id.as_str())
