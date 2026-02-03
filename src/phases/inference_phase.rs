@@ -1,16 +1,4 @@
 //! Inference phase: Statement and expression type checking
-//!
-//! This phase handles type inference and checking for statements and expressions.
-//! It coordinates type checking of:
-//! - Variable declarations
-//! - Function declarations
-//! - Control flow statements (if, while, for, return, etc.)
-//! - Expression type inference
-//!
-//! **Design Pattern**: Stateless functions with explicit context parameters.
-//! For operations requiring TypeChecker state, returns control to TypeChecker.
-
-#![allow(dead_code)]
 
 use crate::TypeCheckError;
 use typedlua_parser::ast::statement::{
@@ -143,4 +131,165 @@ pub fn check_return_statement(
 
     // Caller should check the expression type against current_function_return_type
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use typedlua_parser::span::Span;
+
+    #[test]
+    fn test_check_rethrow_inside_catch() {
+        let span = Span::new(0, 10, 0, 10);
+        let in_catch = vec![true];
+        let result = check_rethrow_statement(&in_catch, span);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_rethrow_outside_catch() {
+        let span = Span::new(0, 10, 0, 10);
+        let in_catch: Vec<bool> = vec![];
+        let result = check_rethrow_statement(&in_catch, span);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_return_inside_function() {
+        let span = Span::new(0, 10, 0, 10);
+        let return_type = typedlua_parser::ast::types::Type::new(
+            typedlua_parser::ast::types::TypeKind::Primitive(
+                typedlua_parser::ast::types::PrimitiveType::Number,
+            ),
+            span,
+        );
+        let result = check_return_statement(
+            &typedlua_parser::ast::statement::ReturnStatement {
+                values: Vec::new(),
+                span,
+            },
+            Some(&return_type),
+            span,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_return_outside_function() {
+        let span = Span::new(0, 10, 0, 10);
+        let result = check_return_statement(
+            &typedlua_parser::ast::statement::ReturnStatement {
+                values: Vec::new(),
+                span,
+            },
+            None,
+            span,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_check_if_statement() {
+        let span = Span::new(0, 10, 0, 10);
+        let if_stmt = typedlua_parser::ast::statement::IfStatement {
+            condition: typedlua_parser::ast::expression::Expression {
+                kind: typedlua_parser::ast::expression::ExpressionKind::Literal(
+                    typedlua_parser::ast::expression::Literal::Boolean(true),
+                ),
+                span,
+                annotated_type: None,
+                receiver_class: None,
+            },
+            then_block: typedlua_parser::ast::statement::Block {
+                statements: Vec::new(),
+                span,
+            },
+            else_ifs: Vec::new(),
+            else_block: None,
+            span,
+        };
+        let result = check_if_statement(&if_stmt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_while_statement() {
+        let span = Span::new(0, 10, 0, 10);
+        let while_stmt = typedlua_parser::ast::statement::WhileStatement {
+            condition: typedlua_parser::ast::expression::Expression {
+                kind: typedlua_parser::ast::expression::ExpressionKind::Literal(
+                    typedlua_parser::ast::expression::Literal::Boolean(true),
+                ),
+                span,
+                annotated_type: None,
+                receiver_class: None,
+            },
+            body: typedlua_parser::ast::statement::Block {
+                statements: Vec::new(),
+                span,
+            },
+            span,
+        };
+        let result = check_while_statement(&while_stmt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_for_statement() {
+        let span = Span::new(0, 10, 0, 10);
+        let for_stmt = typedlua_parser::ast::statement::ForStatement::Numeric(Box::new(
+            typedlua_parser::ast::statement::ForNumeric {
+                variable: typedlua_parser::ast::Spanned::new(
+                    typedlua_parser::string_interner::StringId::from_u32(0),
+                    span,
+                ),
+                start: typedlua_parser::ast::expression::Expression {
+                    kind: typedlua_parser::ast::expression::ExpressionKind::Literal(
+                        typedlua_parser::ast::expression::Literal::Number(1.0),
+                    ),
+                    span,
+                    annotated_type: None,
+                    receiver_class: None,
+                },
+                end: typedlua_parser::ast::expression::Expression {
+                    kind: typedlua_parser::ast::expression::ExpressionKind::Literal(
+                        typedlua_parser::ast::expression::Literal::Number(10.0),
+                    ),
+                    span,
+                    annotated_type: None,
+                    receiver_class: None,
+                },
+                step: None,
+                body: typedlua_parser::ast::statement::Block {
+                    statements: Vec::new(),
+                    span,
+                },
+                span,
+            },
+        ));
+        let result = check_for_statement(&for_stmt);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_repeat_statement() {
+        let span = Span::new(0, 10, 0, 10);
+        let repeat_stmt = typedlua_parser::ast::statement::RepeatStatement {
+            body: typedlua_parser::ast::statement::Block {
+                statements: Vec::new(),
+                span,
+            },
+            until: typedlua_parser::ast::expression::Expression {
+                kind: typedlua_parser::ast::expression::ExpressionKind::Literal(
+                    typedlua_parser::ast::expression::Literal::Boolean(true),
+                ),
+                span,
+                annotated_type: None,
+                receiver_class: None,
+            },
+            span,
+        };
+        let result = check_repeat_statement(&repeat_stmt);
+        assert!(result.is_ok());
+    }
 }

@@ -1833,4 +1833,510 @@ mod tests {
             TypeKind::Primitive(PrimitiveType::Number)
         ));
     }
+
+    #[test]
+    fn test_instantiate_parenthesized_type() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        // Parenthesized<T>
+        let parenthesized_type = Type::new(
+            TypeKind::Parenthesized(Box::new(Type::new(
+                TypeKind::Reference(TypeReference {
+                    name: Spanned::new(t_id, span),
+                    type_arguments: None,
+                    span,
+                }),
+                span,
+            ))),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&parenthesized_type, &[type_param], &[number_type]).unwrap();
+
+        match &result.kind {
+            TypeKind::Parenthesized(inner) => {
+                assert!(matches!(
+                    inner.kind,
+                    TypeKind::Primitive(PrimitiveType::Number)
+                ));
+            }
+            _ => panic!("Expected parenthesized type"),
+        }
+    }
+
+    #[test]
+    fn test_instantiate_intersection_type() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+        let u_id = interner.intern("U");
+
+        let type_param_t = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        let type_param_u = TypeParameter {
+            name: Spanned::new(u_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        // Intersection<T, U>
+        let intersection_type = Type::new(
+            TypeKind::Intersection(vec![
+                Type::new(
+                    TypeKind::Reference(TypeReference {
+                        name: Spanned::new(t_id, span),
+                        type_arguments: None,
+                        span,
+                    }),
+                    span,
+                ),
+                Type::new(
+                    TypeKind::Reference(TypeReference {
+                        name: Spanned::new(u_id, span),
+                        type_arguments: None,
+                        span,
+                    }),
+                    span,
+                ),
+            ]),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let string_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        let result = instantiate_type(
+            &intersection_type,
+            &[type_param_t, type_param_u],
+            &[number_type, string_type],
+        )
+        .unwrap();
+
+        match &result.kind {
+            TypeKind::Intersection(members) => {
+                assert_eq!(members.len(), 2);
+                assert!(matches!(
+                    members[0].kind,
+                    TypeKind::Primitive(PrimitiveType::Number)
+                ));
+                assert!(matches!(
+                    members[1].kind,
+                    TypeKind::Primitive(PrimitiveType::String)
+                ));
+            }
+            _ => panic!("Expected intersection type"),
+        }
+    }
+
+    #[test]
+    fn test_instantiate_object_type_with_property() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        let value_id = interner.intern("value");
+
+        let obj_type = Type::new(
+            TypeKind::Object(typedlua_parser::ast::types::ObjectType {
+                members: vec![typedlua_parser::ast::types::ObjectTypeMember::Property(
+                    typedlua_parser::ast::statement::PropertySignature {
+                        name: Spanned::new(value_id, span),
+                        type_annotation: Type::new(
+                            TypeKind::Reference(TypeReference {
+                                name: Spanned::new(t_id, span),
+                                type_arguments: None,
+                                span,
+                            }),
+                            span,
+                        ),
+                        is_readonly: false,
+                        is_optional: false,
+                        span,
+                    },
+                )],
+                span,
+            }),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&obj_type, &[type_param], &[number_type]).unwrap();
+
+        match &result.kind {
+            TypeKind::Object(obj) => {
+                assert_eq!(obj.members.len(), 1);
+                if let typedlua_parser::ast::types::ObjectTypeMember::Property(prop) =
+                    &obj.members[0]
+                {
+                    assert!(matches!(
+                        prop.type_annotation.kind,
+                        TypeKind::Primitive(PrimitiveType::Number)
+                    ));
+                } else {
+                    panic!("Expected property member");
+                }
+            }
+            _ => panic!("Expected object type"),
+        }
+    }
+
+    #[test]
+    fn test_instantiate_object_type_with_method() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        let method_id = interner.intern("getValue");
+
+        let obj_type = Type::new(
+            TypeKind::Object(typedlua_parser::ast::types::ObjectType {
+                members: vec![typedlua_parser::ast::types::ObjectTypeMember::Method(
+                    typedlua_parser::ast::statement::MethodSignature {
+                        name: Spanned::new(method_id, span),
+                        type_parameters: None,
+                        parameters: vec![],
+                        return_type: Type::new(
+                            TypeKind::Reference(TypeReference {
+                                name: Spanned::new(t_id, span),
+                                type_arguments: None,
+                                span,
+                            }),
+                            span,
+                        ),
+                        body: None,
+                        span,
+                    },
+                )],
+                span,
+            }),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&obj_type, &[type_param], &[number_type]).unwrap();
+
+        match &result.kind {
+            TypeKind::Object(obj) => {
+                assert_eq!(obj.members.len(), 1);
+                if let typedlua_parser::ast::types::ObjectTypeMember::Method(method) =
+                    &obj.members[0]
+                {
+                    assert!(matches!(
+                        method.return_type.kind,
+                        TypeKind::Primitive(PrimitiveType::Number)
+                    ));
+                } else {
+                    panic!("Expected method member");
+                }
+            }
+            _ => panic!("Expected object type"),
+        }
+    }
+
+    #[test]
+    fn test_instantiate_object_type_with_index_signature() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        let key_id = interner.intern("key");
+
+        let obj_type = Type::new(
+            TypeKind::Object(typedlua_parser::ast::types::ObjectType {
+                members: vec![typedlua_parser::ast::types::ObjectTypeMember::Index(
+                    typedlua_parser::ast::statement::IndexSignature {
+                        key_name: Spanned::new(key_id, span),
+                        key_type: typedlua_parser::ast::statement::IndexKeyType::String,
+                        value_type: Type::new(
+                            TypeKind::Reference(TypeReference {
+                                name: Spanned::new(t_id, span),
+                                type_arguments: None,
+                                span,
+                            }),
+                            span,
+                        ),
+                        span,
+                    },
+                )],
+                span,
+            }),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&obj_type, &[type_param], &[number_type]).unwrap();
+
+        match &result.kind {
+            TypeKind::Object(obj) => {
+                assert_eq!(obj.members.len(), 1);
+                if let typedlua_parser::ast::types::ObjectTypeMember::Index(idx) = &obj.members[0] {
+                    assert!(matches!(
+                        idx.value_type.kind,
+                        TypeKind::Primitive(PrimitiveType::Number)
+                    ));
+                } else {
+                    panic!("Expected index member");
+                }
+            }
+            _ => panic!("Expected object type"),
+        }
+    }
+
+    #[test]
+    fn test_substitute_type_with_type_args_error() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        // Type reference T with type arguments (should error)
+        let type_ref_with_args = Type::new(
+            TypeKind::Reference(TypeReference {
+                name: Spanned::new(t_id, span),
+                type_arguments: Some(vec![Type::new(
+                    TypeKind::Primitive(PrimitiveType::Number),
+                    span,
+                )]),
+                span,
+            }),
+            span,
+        );
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&type_ref_with_args, &[type_param], &[number_type]);
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_instantiate_type_primitive() {
+        let span = Span::new(0, 0, 0, 0);
+
+        let primitive_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        let result = instantiate_type(&primitive_type, &[], &[]);
+
+        assert!(result.is_ok());
+        assert!(matches!(
+            result.unwrap().kind,
+            TypeKind::Primitive(PrimitiveType::Number)
+        ));
+    }
+
+    #[test]
+    fn test_check_type_constraints_with_multiple_params() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+        let u_id = interner.intern("U");
+
+        let type_param_t = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: Some(Box::new(Type::new(
+                TypeKind::Primitive(PrimitiveType::Number),
+                span,
+            ))),
+            default: None,
+            span,
+        };
+
+        let type_param_u = TypeParameter {
+            name: Spanned::new(u_id, span),
+            constraint: Some(Box::new(Type::new(
+                TypeKind::Primitive(PrimitiveType::String),
+                span,
+            ))),
+            default: None,
+            span,
+        };
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let string_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        let result =
+            check_type_constraints(&[type_param_t, type_param_u], &[number_type, string_type]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_type_constraints_second_param_fails() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+        let u_id = interner.intern("U");
+
+        let type_param_t = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: Some(Box::new(Type::new(
+                TypeKind::Primitive(PrimitiveType::Number),
+                span,
+            ))),
+            default: None,
+            span,
+        };
+
+        let type_param_u = TypeParameter {
+            name: Spanned::new(u_id, span),
+            constraint: Some(Box::new(Type::new(
+                TypeKind::Primitive(PrimitiveType::String),
+                span,
+            ))),
+            default: None,
+            span,
+        };
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let boolean_type = Type::new(TypeKind::Primitive(PrimitiveType::Boolean), span);
+
+        let result =
+            check_type_constraints(&[type_param_t, type_param_u], &[number_type, boolean_type]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_infer_from_types_array_mismatch() {
+        let span = Span::new(0, 0, 0, 0);
+
+        let param_type = Type::new(
+            TypeKind::Array(Box::new(Type::new(
+                TypeKind::Primitive(PrimitiveType::Number),
+                span,
+            ))),
+            span,
+        );
+
+        let arg_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        let mut inferred: FxHashMap<StringId, Type> = FxHashMap::default();
+        let result = infer_from_types(&param_type, &arg_type, &mut inferred);
+
+        assert!(result.is_ok());
+        assert!(inferred.is_empty());
+    }
+
+    #[test]
+    fn test_types_equal_primitives() {
+        let span = Span::new(0, 0, 0, 0);
+
+        let num1 = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let num2 = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let str_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        assert!(types_equal(&num1, &num2));
+        assert!(!types_equal(&num1, &str_type));
+    }
+
+    #[test]
+    fn test_types_equal_references() {
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+
+        let ref1 = Type::new(
+            TypeKind::Reference(TypeReference {
+                name: Spanned::new(t_id, span),
+                type_arguments: None,
+                span,
+            }),
+            span,
+        );
+        let ref2 = Type::new(
+            TypeKind::Reference(TypeReference {
+                name: Spanned::new(t_id, span),
+                type_arguments: None,
+                span,
+            }),
+            span,
+        );
+
+        assert!(types_equal(&ref1, &ref2));
+    }
+
+    #[test]
+    fn test_infer_type_arguments_conflict() {
+        use typedlua_parser::ast::pattern::Pattern;
+        use typedlua_parser::ast::statement::Parameter;
+
+        let span = Span::new(0, 0, 0, 0);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let t_id = interner.intern("T");
+        let x_id = interner.intern("x");
+
+        let type_param = TypeParameter {
+            name: Spanned::new(t_id, span),
+            constraint: None,
+            default: None,
+            span,
+        };
+
+        let param = Parameter {
+            pattern: Pattern::Identifier(Spanned::new(x_id, span)),
+            type_annotation: Some(Type::new(
+                TypeKind::Reference(TypeReference {
+                    name: Spanned::new(t_id, span),
+                    type_arguments: None,
+                    span,
+                }),
+                span,
+            )),
+            default: None,
+            is_rest: false,
+            is_optional: false,
+            span,
+        };
+
+        let number_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let string_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        let result = infer_type_arguments(&[type_param], &[param], &[number_type, string_type]);
+        assert!(result.is_err());
+    }
 }

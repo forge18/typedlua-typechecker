@@ -441,3 +441,203 @@ fn resolve_import_type(
     // Fallback: return Unknown type
     Ok(Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cli::diagnostics::CollectingDiagnosticHandler;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_extract_exports_empty() {
+        let program = typedlua_parser::ast::Program {
+            statements: Vec::new(),
+            span: Span::new(0, 0, 0, 0),
+        };
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let symbol_table = crate::utils::symbol_table::SymbolTable::new();
+        let result = extract_exports(&program, &symbol_table, &interner, None, None, None);
+        assert!(result.named.is_empty());
+        assert!(result.default.is_none());
+    }
+
+    #[test]
+    fn test_extract_exports_with_variable() {
+        let span = Span::new(0, 10, 0, 10);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
+
+        let name_id = interner.intern("myVar");
+        let symbol = crate::utils::symbol_table::Symbol::new(
+            "myVar".to_string(),
+            crate::utils::symbol_table::SymbolKind::Variable,
+            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+            span,
+        );
+        symbol_table.declare(symbol).unwrap();
+
+        let program = typedlua_parser::ast::Program {
+            statements: Vec::new(),
+            span,
+        };
+
+        let result = extract_exports(&program, &symbol_table, &interner, None, None, None);
+        assert!(result.named.is_empty());
+    }
+
+    #[test]
+    fn test_check_import_statement_default() {
+        let span = Span::new(0, 10, 0, 10);
+        let handler: Arc<dyn DiagnosticHandler> = Arc::new(CollectingDiagnosticHandler::new());
+        let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
+        let mut type_env = crate::core::type_environment::TypeEnvironment::new();
+        let mut access_control = crate::visitors::AccessControl::new();
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let mut module_dependencies: Vec<PathBuf> = Vec::new();
+
+        let name_id = interner.intern("MyModule");
+        let import = typedlua_parser::ast::statement::ImportDeclaration {
+            clause: typedlua_parser::ast::statement::ImportClause::Default(
+                typedlua_parser::ast::Spanned::new(name_id, span),
+            ),
+            source: "./my_module.lua".to_string(),
+            span,
+        };
+
+        let result = check_import_statement(
+            &import,
+            &mut symbol_table,
+            &mut type_env,
+            &mut access_control,
+            &interner,
+            &mut module_dependencies,
+            None,
+            None,
+            None,
+            &handler,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_resolve_import_type_no_resolver() {
+        let span = Span::new(0, 10, 0, 10);
+        let handler: Arc<dyn DiagnosticHandler> = Arc::new(CollectingDiagnosticHandler::new());
+        let mut module_dependencies: Vec<PathBuf> = Vec::new();
+
+        let result = resolve_import_type(
+            "./unknown.lua",
+            "SomeType",
+            span,
+            &mut module_dependencies,
+            None,
+            None,
+            None,
+            &handler,
+        );
+        // Should return Unknown type when no resolver configured
+        assert!(result.is_ok());
+        let resolved_type = result.unwrap();
+        assert!(matches!(
+            resolved_type.kind,
+            TypeKind::Primitive(PrimitiveType::Unknown)
+        ));
+    }
+
+    #[test]
+    fn test_check_import_statement_named() {
+        let span = Span::new(0, 10, 0, 10);
+        let handler: Arc<dyn DiagnosticHandler> = Arc::new(CollectingDiagnosticHandler::new());
+        let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
+        let mut type_env = crate::core::type_environment::TypeEnvironment::new();
+        let mut access_control = crate::visitors::AccessControl::new();
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let mut module_dependencies: Vec<PathBuf> = Vec::new();
+
+        let import = typedlua_parser::ast::statement::ImportDeclaration {
+            clause: typedlua_parser::ast::statement::ImportClause::Named(vec![
+                typedlua_parser::ast::statement::ImportSpecifier {
+                    imported: typedlua_parser::ast::Spanned::new(interner.intern("foo"), span),
+                    local: Some(typedlua_parser::ast::Spanned::new(
+                        interner.intern("foo"),
+                        span,
+                    )),
+                    span,
+                },
+            ]),
+            source: "./my_module.lua".to_string(),
+            span,
+        };
+
+        let result = check_import_statement(
+            &import,
+            &mut symbol_table,
+            &mut type_env,
+            &mut access_control,
+            &interner,
+            &mut module_dependencies,
+            None,
+            None,
+            None,
+            &handler,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_check_import_statement_namespace() {
+        let span = Span::new(0, 10, 0, 10);
+        let handler: Arc<dyn DiagnosticHandler> = Arc::new(CollectingDiagnosticHandler::new());
+        let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
+        let mut type_env = crate::core::type_environment::TypeEnvironment::new();
+        let mut access_control = crate::visitors::AccessControl::new();
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let mut module_dependencies: Vec<PathBuf> = Vec::new();
+
+        let import = typedlua_parser::ast::statement::ImportDeclaration {
+            clause: typedlua_parser::ast::statement::ImportClause::Namespace(
+                typedlua_parser::ast::Spanned::new(interner.intern("mylib"), span),
+            ),
+            source: "./my_module.lua".to_string(),
+            span,
+        };
+
+        let result = check_import_statement(
+            &import,
+            &mut symbol_table,
+            &mut type_env,
+            &mut access_control,
+            &interner,
+            &mut module_dependencies,
+            None,
+            None,
+            None,
+            &handler,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extract_declaration_export_function() {
+        let span = Span::new(0, 10, 0, 10);
+        let interner = typedlua_parser::string_interner::StringInterner::new();
+        let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
+
+        let func_name_id = interner.intern("myFunc");
+        let symbol = crate::utils::symbol_table::Symbol::new(
+            "myFunc".to_string(),
+            crate::utils::symbol_table::SymbolKind::Function,
+            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+            span,
+        );
+        symbol_table.declare(symbol).unwrap();
+
+        let program = typedlua_parser::ast::Program {
+            statements: Vec::new(),
+            span,
+        };
+
+        let result = extract_exports(&program, &symbol_table, &interner, None, None, None);
+        assert!(result.named.is_empty());
+    }
+}

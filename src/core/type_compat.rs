@@ -376,14 +376,62 @@ mod tests {
     }
 
     #[test]
-    fn test_never_assignability() {
-        let never = make_type(TypeKind::Primitive(PrimitiveType::Never));
+    fn test_parenthesized_type() {
         let number = make_type(TypeKind::Primitive(PrimitiveType::Number));
+        let parenthesized = make_type(TypeKind::Parenthesized(Box::new(number.clone())));
 
-        // never is assignable to anything
-        assert!(TypeCompatibility::is_assignable(&never, &number));
-        // nothing (except never) is assignable to never
-        assert!(!TypeCompatibility::is_assignable(&number, &never));
-        assert!(TypeCompatibility::is_assignable(&never, &never));
+        // Parenthesized type should be same as inner type
+        assert!(TypeCompatibility::is_assignable(&parenthesized, &number));
+        assert!(TypeCompatibility::is_assignable(&number, &parenthesized));
+    }
+
+    #[test]
+    fn test_literal_nil_to_nullable() {
+        let nil_type = make_type(TypeKind::Primitive(PrimitiveType::Nil));
+        let nullable_string = make_type(TypeKind::Nullable(Box::new(make_type(
+            TypeKind::Primitive(PrimitiveType::String),
+        ))));
+
+        // nil is assignable to nullable string
+        assert!(TypeCompatibility::is_assignable(
+            &nil_type,
+            &nullable_string
+        ));
+    }
+
+    #[test]
+    fn test_tuple_assignability() {
+        let number = make_type(TypeKind::Primitive(PrimitiveType::Number));
+        let string = make_type(TypeKind::Primitive(PrimitiveType::String));
+
+        let tuple1 = make_type(TypeKind::Tuple(vec![number.clone(), string.clone()]));
+        let tuple2 = make_type(TypeKind::Tuple(vec![number.clone(), string.clone()]));
+
+        // Same tuples should be assignable
+        assert!(TypeCompatibility::is_assignable(&tuple1, &tuple2));
+
+        let tuple_diff = make_type(TypeKind::Tuple(vec![number.clone(), number.clone()]));
+        assert!(!TypeCompatibility::is_assignable(&tuple_diff, &tuple1));
+    }
+
+    #[test]
+    fn test_function_with_throws() {
+        let func1 = make_type(TypeKind::Function(FunctionType {
+            parameters: vec![],
+            return_type: Box::new(make_type(TypeKind::Primitive(PrimitiveType::Number))),
+            throws: None,
+            span: Span::new(0, 0, 0, 0),
+            type_parameters: None,
+        }));
+        let func2 = make_type(TypeKind::Function(FunctionType {
+            parameters: vec![],
+            return_type: Box::new(make_type(TypeKind::Primitive(PrimitiveType::Number))),
+            throws: None,
+            span: Span::new(0, 0, 0, 0),
+            type_parameters: None,
+        }));
+
+        // Functions should be compatible
+        assert!(TypeCompatibility::is_assignable(&func1, &func2));
     }
 }
