@@ -1238,9 +1238,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "x".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 x_type.clone(),
                 Span::default(),
             ))
@@ -1596,9 +1596,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "obj".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 obj_type.clone(),
                 Span::default(),
             ))
@@ -1656,9 +1656,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "arr".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 arr_type.clone(),
                 Span::default(),
             ))
@@ -1727,9 +1727,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "maybeFunc".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 func_type.clone(),
                 Span::default(),
             ))
@@ -1920,9 +1920,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "other".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 other_type.clone(),
                 Span::default(),
             ))
@@ -2039,9 +2039,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "result".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 result_type.clone(),
                 Span::default(),
             ))
@@ -2107,9 +2107,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "double".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 double_type.clone(),
                 Span::default(),
             ))
@@ -2169,9 +2169,9 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "tuple".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 tuple_type.clone(),
                 Span::default(),
             ))
@@ -2275,18 +2275,18 @@ mod tests {
         };
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "x".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 num_type.clone(),
                 Span::default(),
             ))
             .unwrap();
 
         symbol_table
-            .declare(super::super::super::super::symbol_table::Symbol::new(
+            .declare(crate::utils::symbol_table::Symbol::new(
                 "y".to_string(),
-                super::super::super::super::symbol_table::SymbolKind::Variable,
+                crate::utils::symbol_table::SymbolKind::Variable,
                 num_type.clone(),
                 Span::default(),
             ))
