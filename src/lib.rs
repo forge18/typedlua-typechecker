@@ -6,6 +6,7 @@ mod generics;
 mod helpers;
 pub mod module_resolver;
 mod narrowing_integration;
+mod phases;
 mod state;
 mod stdlib;
 mod symbol_table;
