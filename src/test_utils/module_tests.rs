@@ -13,12 +13,13 @@ fn test_file_system_with_di() {
     let mut container = DiContainer::new();
 
     // Setup mock file system
-    let mock_fs = MockFileSystem::new();
-    mock_fs.add_file("config.lua", "return { version = '1.0' }");
-    mock_fs.add_file("utils.lua", "local function helper() return 42 end");
-
     container.register(
-        |_| Arc::new(mock_fs) as Arc<dyn crate::cli::fs::FileSystem>,
+        |_| {
+            let mock_fs = MockFileSystem::new();
+            mock_fs.add_file("config.lua", "return { version = '1.0' }");
+            mock_fs.add_file("utils.lua", "local function helper() return 42 end");
+            Arc::new(mock_fs) as Arc<dyn crate::cli::fs::FileSystem>
+        },
         ServiceLifetime::Singleton,
     );
 
@@ -54,14 +55,14 @@ fn test_diagnostics_with_di() {
     let mut container = DiContainer::new();
 
     // Setup mock diagnostics
-    let mock_diagnostics = MockDiagnosticHandler::new();
-
     container.register(
-        |_| Arc::new(mock_diagnostics) as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>,
+        |_| {
+            let mock_diagnostics = MockDiagnosticHandler::new();
+            Arc::new(mock_diagnostics) as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>
+        },
         ServiceLifetime::Singleton,
     );
 
-    // Test diagnostics
     let diagnostics = container
         .resolve::<Arc<dyn crate::cli::diagnostics::DiagnosticHandler>>()
         .unwrap();
@@ -86,20 +87,23 @@ fn test_diagnostics_with_di() {
 fn test_integration_file_system_and_diagnostics() {
     let mut container = DiContainer::new();
 
-    // Setup complete mock environment
-    let mock_fs = MockFileSystem::new();
+    // Setup complete mock environment - create mocks first, then wrap in Arc for sharing
+    let mut mock_fs = MockFileSystem::new();
     mock_fs.add_file("main.lua", "print('hello')");
     mock_fs.add_file("lib.lua", "local function lib() return true end");
 
-    let mock_diagnostics = MockDiagnosticHandler::new();
+    let mut mock_diagnostics = MockDiagnosticHandler::new();
+
+    let fs_ptr = Arc::new(mock_fs);
+    let diagnostics_ptr = Arc::new(mock_diagnostics);
 
     container.register(
-        |_| Arc::new(mock_fs) as Arc<dyn crate::cli::fs::FileSystem>,
+        move |_| fs_ptr.clone() as Arc<dyn crate::cli::fs::FileSystem>,
         ServiceLifetime::Singleton,
     );
 
     container.register(
-        |_| Arc::new(mock_diagnostics) as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>,
+        move |_| diagnostics_ptr.clone() as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>,
         ServiceLifetime::Singleton,
     );
 

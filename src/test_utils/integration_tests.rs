@@ -15,18 +15,20 @@ fn test_di_container_with_real_components() {
     let mut container = DiContainer::new();
 
     // Register mock services that implement real traits
-    let mock_fs = MockFileSystem::new();
-    mock_fs.add_file("test.lua", "local x = 5");
-
-    let mock_diagnostics = MockDiagnosticHandler::new();
-
     container.register(
-        |_| Arc::new(mock_fs) as Arc<dyn FileSystem>,
+        |_| {
+            let mock_fs = MockFileSystem::new();
+            mock_fs.add_file("test.lua", "local x = 5");
+            Arc::new(mock_fs) as Arc<dyn FileSystem>
+        },
         ServiceLifetime::Singleton,
     );
 
     container.register(
-        |_| Arc::new(mock_diagnostics) as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>,
+        |_| {
+            let mock_diagnostics = MockDiagnosticHandler::new();
+            Arc::new(mock_diagnostics) as Arc<dyn crate::cli::diagnostics::DiagnosticHandler>
+        },
         ServiceLifetime::Singleton,
     );
 
@@ -97,10 +99,10 @@ fn test_di_container_service_management() {
     assert_eq!(container.service_count(), 0);
     assert_eq!(container.singleton_count(), 0);
 
-    // Register services
+    // Register services - use different types to avoid replacement
     container.register(|_| "service1", ServiceLifetime::Singleton);
 
-    container.register(|_| "service2", ServiceLifetime::Transient);
+    container.register(|_| 42i32, ServiceLifetime::Transient);
 
     // Verify registration
     assert_eq!(container.service_count(), 2);
@@ -111,7 +113,7 @@ fn test_di_container_service_management() {
     assert_eq!(s1, "service1");
     assert_eq!(container.singleton_count(), 1); // Now cached
 
-    let s2 = container.resolve::<&str>().unwrap();
-    assert_eq!(s2, "service2");
+    let s2 = container.resolve::<i32>().unwrap();
+    assert_eq!(s2, 42);
     assert_eq!(container.singleton_count(), 1); // Transient not cached
 }

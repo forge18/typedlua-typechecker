@@ -38,7 +38,12 @@ impl DiContainer {
     /// # Example
     ///
     /// ```rust
-    /// container.register(|_| MyService::new(), ServiceLifetime::Singleton);
+    /// use typedlua_typechecker::di::{DiContainer, ServiceLifetime};
+    ///
+    /// let mut container = DiContainer::new();
+    /// container.register(|_| String::from("Hello"), ServiceLifetime::Singleton);
+    /// let greeting = container.resolve::<String>().unwrap();
+    /// assert_eq!(greeting, "Hello");
     /// ```
     pub fn register<T: 'static + Send + Sync>(
         &mut self,
@@ -64,7 +69,12 @@ impl DiContainer {
     /// # Example
     ///
     /// ```rust
-    /// let service = container.resolve::<MyService>();
+    /// use typedlua_typechecker::di::{DiContainer, ServiceLifetime};
+    ///
+    /// let mut container = DiContainer::new();
+    /// container.register(|_| 42i32, ServiceLifetime::Singleton);
+    /// let value = container.resolve::<i32>();
+    /// assert_eq!(value, Some(42));
     /// ```
     pub fn resolve<T: 'static + Send + Sync + Clone>(&mut self) -> Option<T> {
         let type_id = TypeId::of::<T>();

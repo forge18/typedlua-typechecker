@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 /// Mock diagnostic handler that collects diagnostics for testing
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct MockDiagnosticHandler {
     diagnostics: Mutex<Vec<Diagnostic>>,
 }
@@ -39,7 +39,7 @@ impl DiagnosticHandler for MockDiagnosticHandler {
             .lock()
             .unwrap()
             .iter()
-            .any(|d| d.is_error())
+            .any(|d| matches!(d.level, crate::cli::diagnostics::DiagnosticLevel::Error))
     }
 
     fn error_count(&self) -> usize {
@@ -47,7 +47,7 @@ impl DiagnosticHandler for MockDiagnosticHandler {
             .lock()
             .unwrap()
             .iter()
-            .filter(|d| d.is_error())
+            .filter(|d| matches!(d.level, crate::cli::diagnostics::DiagnosticLevel::Error))
             .count()
     }
 
@@ -56,7 +56,7 @@ impl DiagnosticHandler for MockDiagnosticHandler {
             .lock()
             .unwrap()
             .iter()
-            .filter(|d| d.is_warning())
+            .filter(|d| matches!(d.level, crate::cli::diagnostics::DiagnosticLevel::Warning))
             .count()
     }
 
@@ -66,7 +66,7 @@ impl DiagnosticHandler for MockDiagnosticHandler {
 }
 
 /// Mock file system for testing
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct MockFileSystem {
     files: Mutex<std::collections::HashMap<String, String>>,
 }

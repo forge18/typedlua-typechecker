@@ -4,6 +4,10 @@
 *.pdb
 Cargo.lock
 
+# Coverage reports
+htmlcov/
+cov_report/
+
 # Debug builds
 debug/
 

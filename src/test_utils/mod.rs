@@ -4,6 +4,5 @@
 //! to create isolated, maintainable test scenarios.
 
 pub mod integration_tests;
-pub mod integration_tests;
 pub mod mocks;
 pub mod module_tests;
