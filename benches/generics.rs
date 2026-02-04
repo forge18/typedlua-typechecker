@@ -192,7 +192,7 @@ fn benchmark_generic_instantiation(c: &mut Criterion) {
     for count in [5, 10, 20] {
         for depth in [3, 5, 10] {
             group.bench_with_input(
-                BenchmarkId::new(format!("{}_containers_{}_depth", count, depth)),
+                BenchmarkId::new(format!("{}_containers_{}_depth", count, depth), count),
                 &(count, depth),
                 |b, &(count, depth)| {
                     let code = generate_generic_instantiation(count, depth);

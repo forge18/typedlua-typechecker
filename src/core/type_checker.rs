@@ -489,7 +489,8 @@ impl<'a> TypeChecker<'a> {
                     // Deep resolve to handle nested types
                     self.deep_resolve_type(&evaluated)
                 } else {
-                    Type::new(TypeKind::Primitive(PrimitiveType::Unknown), param.span)
+                    self.type_env
+                        .new_primitive_type(PrimitiveType::Unknown, param.span)
                 };
 
                 // Wrap in array type
@@ -503,7 +504,8 @@ impl<'a> TypeChecker<'a> {
                 // Deep resolve to handle nested types
                 self.deep_resolve_type(&evaluated)
             } else {
-                Type::new(TypeKind::Primitive(PrimitiveType::Unknown), param.span)
+                self.type_env
+                    .new_primitive_type(PrimitiveType::Unknown, param.span)
             };
 
             self.declare_pattern(
@@ -638,9 +640,8 @@ impl<'a> TypeChecker<'a> {
             ForStatement::Numeric(numeric) => {
                 self.symbol_table.enter_scope();
 
-                // Declare loop variable as number
-                let number_type =
-                    Type::new(TypeKind::Primitive(PrimitiveType::Number), numeric.span);
+                // Declare loop variable as number (using cached primitive)
+                let number_type = self.type_env.get_number_type(numeric.span);
                 let symbol = Symbol::new(
                     self.interner.resolve(numeric.variable.node).to_string(),
                     SymbolKind::Variable,
@@ -666,8 +667,7 @@ impl<'a> TypeChecker<'a> {
 
                 // Declare loop variables with unknown type
 
-                let unknown_type =
-                    Type::new(TypeKind::Primitive(PrimitiveType::Unknown), generic.span);
+                let unknown_type = self.type_env.get_unknown_type(generic.span);
                 for var in &generic.variables {
                     let symbol = Symbol::new(
                         self.interner.resolve(var.node).to_string(),
@@ -749,8 +749,7 @@ impl<'a> TypeChecker<'a> {
         } else {
             // Check that void return is allowed
             if let Some(expected_type) = &self.current_function_return_type {
-                let void_type =
-                    Type::new(TypeKind::Primitive(PrimitiveType::Void), return_stmt.span);
+                let void_type = self.type_env.get_void_type(return_stmt.span);
                 if !TypeCompatibility::is_assignable(&void_type, expected_type) {
                     return Err(TypeCheckError::new(
                         "Function expects a return value",
@@ -1805,7 +1804,8 @@ impl<'a> TypeChecker<'a> {
                     // Deep resolve to handle nested types in function types, arrays, etc.
                     self.deep_resolve_type(&evaluated)
                 } else {
-                    Type::new(TypeKind::Primitive(PrimitiveType::Unknown), param.span)
+                    self.type_env
+                        .new_primitive_type(PrimitiveType::Unknown, param.span)
                 };
 
                 self.declare_pattern(
@@ -2051,7 +2051,8 @@ impl<'a> TypeChecker<'a> {
 
         for param in &op.parameters {
             let param_type = param.type_annotation.clone().unwrap_or_else(|| {
-                Type::new(TypeKind::Primitive(PrimitiveType::Unknown), param.span)
+                self.type_env
+                    .new_primitive_type(PrimitiveType::Unknown, param.span)
             });
 
             self.declare_pattern(
@@ -2445,16 +2446,13 @@ impl<'a> TypeChecker<'a> {
                 type_parameters: None,
                 parameters: vec![Parameter {
                     pattern: Pattern::Identifier(Spanned::new(self.interner.intern("s"), span)),
-                    type_annotation: Some(Type::new(
-                        TypeKind::Primitive(PrimitiveType::String),
-                        span,
-                    )),
+                    type_annotation: Some(self.type_env.get_string_type(span)),
                     default: None,
                     is_rest: false,
                     is_optional: false,
                     span,
                 }],
-                return_type: Type::new(TypeKind::Primitive(PrimitiveType::String), span),
+                return_type: self.type_env.get_string_type(span),
                 body: None,
                 span,
             }),
@@ -2463,16 +2461,13 @@ impl<'a> TypeChecker<'a> {
                 type_parameters: None,
                 parameters: vec![Parameter {
                     pattern: Pattern::Identifier(Spanned::new(self.interner.intern("s"), span)),
-                    type_annotation: Some(Type::new(
-                        TypeKind::Primitive(PrimitiveType::String),
-                        span,
-                    )),
+                    type_annotation: Some(self.type_env.get_string_type(span)),
                     default: None,
                     is_rest: false,
                     is_optional: false,
                     span,
                 }],
-                return_type: Type::new(TypeKind::Primitive(PrimitiveType::String), span),
+                return_type: self.type_env.get_string_type(span),
                 body: None,
                 span,
             }),
@@ -2499,7 +2494,7 @@ impl<'a> TypeChecker<'a> {
                 is_readonly: true,
                 name: Spanned::new(self.interner.intern("pi"), span),
                 is_optional: false,
-                type_annotation: Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+                type_annotation: self.type_env.get_number_type(span),
                 span,
             }),
             ObjectTypeMember::Method(MethodSignature {
@@ -2507,16 +2502,13 @@ impl<'a> TypeChecker<'a> {
                 type_parameters: None,
                 parameters: vec![Parameter {
                     pattern: Pattern::Identifier(Spanned::new(self.interner.intern("x"), span)),
-                    type_annotation: Some(Type::new(
-                        TypeKind::Primitive(PrimitiveType::Number),
-                        span,
-                    )),
+                    type_annotation: Some(self.type_env.get_number_type(span)),
                     default: None,
                     is_rest: false,
                     is_optional: false,
                     span,
                 }],
-                return_type: Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+                return_type: self.type_env.get_number_type(span),
                 body: None,
                 span,
             }),
@@ -2659,7 +2651,7 @@ impl<'a> TypeChecker<'a> {
 
         let _catch_var_type = match &clause.pattern {
             CatchPattern::Untyped { variable, span } => {
-                let any_type = Type::new(TypeKind::Primitive(PrimitiveType::Unknown), *span);
+                let any_type = self.type_env.get_unknown_type(*span);
                 let symbol = Symbol::new(
                     self.interner.resolve(variable.node).to_string(),
                     SymbolKind::Variable,

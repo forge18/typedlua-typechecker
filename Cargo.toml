@@ -29,3 +29,7 @@ harness = false
 [[bench]]
 name = "generics"
 harness = false
+
+[[bin]]
+name = "profiler"
+path = "src/bin/profiler.rs"

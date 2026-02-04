@@ -7,7 +7,7 @@ use crate::cli::diagnostics::{Diagnostic, DiagnosticHandler};
 use crate::cli::fs::FileSystem;
 use std::io::Error;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 /// Mock diagnostic handler that collects diagnostics for testing
 #[derive(Debug, Default)]

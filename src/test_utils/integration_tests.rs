@@ -79,15 +79,19 @@ fn test_di_singleton_caching() {
 fn test_di_transient_services() {
     let mut container = DiContainer::new();
 
-    // Register a transient service
-    container.register(|_| std::time::SystemTime::now(), ServiceLifetime::Transient);
+    // Register a transient service using a counter to ensure different instances
+    let counter = std::sync::atomic::AtomicUsize::new(0);
+    container.register(
+        move |_| counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst),
+        ServiceLifetime::Transient,
+    );
 
     // Resolve multiple times
-    let time1 = container.resolve::<std::time::SystemTime>().unwrap();
-    let time2 = container.resolve::<std::time::SystemTime>().unwrap();
+    let id1 = container.resolve::<usize>().unwrap();
+    let id2 = container.resolve::<usize>().unwrap();
 
     // Should get different instances (transient)
-    assert_ne!(time1, time2);
+    assert_ne!(id1, id2);
     assert_eq!(container.singleton_count(), 0);
 }
 

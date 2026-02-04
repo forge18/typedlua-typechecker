@@ -1,0 +1,1 @@
+typedlua_typechecker::cli::diagnostics::CollectingDiagnosticHandler: typedlua_parser::DiagnosticHandler

@@ -55,7 +55,7 @@ pub struct Scope {
 impl Scope {
     pub fn new() -> Self {
         Self {
-            symbols: FxHashMap::default(),
+            symbols: FxHashMap::with_capacity_and_hasher(32, Default::default()),
         }
     }
 

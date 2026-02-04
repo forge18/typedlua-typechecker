@@ -1,4 +1,5 @@
 use rustc_hash::FxHashMap;
+use std::sync::Arc;
 use typedlua_parser::ast::statement::{ConstructorParameter, TypeParameter};
 use typedlua_parser::ast::types::{PrimitiveType, Type, TypeKind};
 use typedlua_parser::span::Span;
@@ -8,6 +9,20 @@ use typedlua_parser::span::Span;
 pub struct GenericTypeAlias {
     pub type_parameters: Vec<TypeParameter>,
     pub typ: Type,
+}
+
+/// Cache key for utility types
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct UtilityTypeCacheKey {
+    name: String,
+    type_args_hash: u64,
+}
+
+/// Cache key for generic type instantiation
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct GenericInstantiationCacheKey {
+    name: String,
+    type_args_hash: u64,
 }
 
 /// Type environment managing type aliases and interfaces
@@ -33,72 +48,102 @@ pub struct TypeEnvironment {
     class_constructors: FxHashMap<String, Vec<ConstructorParameter>>,
     /// Interface type parameter names (interface name -> ordered parameter names)
     interface_type_params: FxHashMap<String, Vec<String>>,
+    /// Cached primitive types (singletons)
+    primitive_nil: Arc<Type>,
+    primitive_boolean: Arc<Type>,
+    primitive_number: Arc<Type>,
+    primitive_integer: Arc<Type>,
+    primitive_string: Arc<Type>,
+    primitive_unknown: Arc<Type>,
+    primitive_never: Arc<Type>,
+    primitive_void: Arc<Type>,
+    primitive_table: Arc<Type>,
+    primitive_coroutine: Arc<Type>,
+    /// Cache for utility type resolutions (Pick, Omit, Keyof, etc.)
+    utility_type_cache: std::cell::RefCell<FxHashMap<UtilityTypeCacheKey, Type>>,
+    /// Cache for generic type instantiations
+    generic_instantiation_cache: std::cell::RefCell<FxHashMap<GenericInstantiationCacheKey, Type>>,
 }
 
 impl TypeEnvironment {
     pub fn new() -> Self {
+        let span = Span::new(0, 0, 0, 0);
+
+        let primitive_nil = Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Nil), span));
+        let primitive_boolean =
+            Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Boolean), span));
+        let primitive_number =
+            Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Number), span));
+        let primitive_integer =
+            Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Integer), span));
+        let primitive_string =
+            Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::String), span));
+        let primitive_unknown =
+            Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span));
+        let primitive_never = Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Never), span));
+        let primitive_void = Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Void), span));
+        let primitive_table = Arc::new(Type::new(TypeKind::Primitive(PrimitiveType::Table), span));
+        let primitive_coroutine = Arc::new(Type::new(
+            TypeKind::Primitive(PrimitiveType::Coroutine),
+            span,
+        ));
+
         let mut env = Self {
-            type_aliases: FxHashMap::default(),
-            generic_type_aliases: FxHashMap::default(),
-            interfaces: FxHashMap::default(),
-            builtins: FxHashMap::default(),
+            type_aliases: FxHashMap::with_capacity_and_hasher(64, Default::default()),
+            generic_type_aliases: FxHashMap::with_capacity_and_hasher(32, Default::default()),
+            interfaces: FxHashMap::with_capacity_and_hasher(64, Default::default()),
+            builtins: FxHashMap::with_capacity_and_hasher(16, Default::default()),
             resolving: std::cell::RefCell::new(std::collections::HashSet::new()),
-            type_param_constraints: FxHashMap::default(),
-            class_implements: FxHashMap::default(),
-            abstract_classes: FxHashMap::default(),
-            class_constructors: FxHashMap::default(),
-            interface_type_params: FxHashMap::default(),
+            type_param_constraints: FxHashMap::with_capacity_and_hasher(32, Default::default()),
+            class_implements: FxHashMap::with_capacity_and_hasher(32, Default::default()),
+            abstract_classes: FxHashMap::with_capacity_and_hasher(16, Default::default()),
+            class_constructors: FxHashMap::with_capacity_and_hasher(32, Default::default()),
+            interface_type_params: FxHashMap::with_capacity_and_hasher(16, Default::default()),
+            primitive_nil,
+            primitive_boolean,
+            primitive_number,
+            primitive_integer,
+            primitive_string,
+            primitive_unknown,
+            primitive_never,
+            primitive_void,
+            primitive_table,
+            primitive_coroutine,
+            utility_type_cache: std::cell::RefCell::new(FxHashMap::with_capacity_and_hasher(
+                64,
+                Default::default(),
+            )),
+            generic_instantiation_cache: std::cell::RefCell::new(
+                FxHashMap::with_capacity_and_hasher(64, Default::default()),
+            ),
         };
 
         env.register_builtins();
         env
     }
 
-    /// Register built-in types
+    /// Register built-in types using cached primitives
     fn register_builtins(&mut self) {
-        let span = Span::new(0, 0, 0, 0);
-
-        // Primitive types
-        self.builtins.insert(
-            "nil".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Nil), span),
-        );
-        self.builtins.insert(
-            "boolean".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Boolean), span),
-        );
-        self.builtins.insert(
-            "number".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
-        );
-        self.builtins.insert(
-            "integer".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Integer), span),
-        );
-        self.builtins.insert(
-            "string".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::String), span),
-        );
-        self.builtins.insert(
-            "unknown".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span),
-        );
-        self.builtins.insert(
-            "never".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Never), span),
-        );
-        self.builtins.insert(
-            "void".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Void), span),
-        );
-        self.builtins.insert(
-            "table".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Table), span),
-        );
-        self.builtins.insert(
-            "coroutine".to_string(),
-            Type::new(TypeKind::Primitive(PrimitiveType::Coroutine), span),
-        );
+        self.builtins
+            .insert("nil".to_string(), (*self.primitive_nil).clone());
+        self.builtins
+            .insert("boolean".to_string(), (*self.primitive_boolean).clone());
+        self.builtins
+            .insert("number".to_string(), (*self.primitive_number).clone());
+        self.builtins
+            .insert("integer".to_string(), (*self.primitive_integer).clone());
+        self.builtins
+            .insert("string".to_string(), (*self.primitive_string).clone());
+        self.builtins
+            .insert("unknown".to_string(), (*self.primitive_unknown).clone());
+        self.builtins
+            .insert("never".to_string(), (*self.primitive_never).clone());
+        self.builtins
+            .insert("void".to_string(), (*self.primitive_void).clone());
+        self.builtins
+            .insert("table".to_string(), (*self.primitive_table).clone());
+        self.builtins
+            .insert("coroutine".to_string(), (*self.primitive_coroutine).clone());
     }
 
     /// Register a type alias
@@ -175,6 +220,97 @@ impl TypeEnvironment {
     /// Get an interface (alias for lookup_interface)
     pub fn get_interface(&self, name: &str) -> Option<&Type> {
         self.lookup_interface(name)
+    }
+
+    /// Fast access to primitive type singletons
+    pub fn type_nil(&self) -> &Arc<Type> {
+        &self.primitive_nil
+    }
+
+    pub fn type_boolean(&self) -> &Arc<Type> {
+        &self.primitive_boolean
+    }
+
+    pub fn type_number(&self) -> &Arc<Type> {
+        &self.primitive_number
+    }
+
+    pub fn type_integer(&self) -> &Arc<Type> {
+        &self.primitive_integer
+    }
+
+    pub fn type_string(&self) -> &Arc<Type> {
+        &self.primitive_string
+    }
+
+    pub fn type_unknown(&self) -> &Arc<Type> {
+        &self.primitive_unknown
+    }
+
+    pub fn type_never(&self) -> &Arc<Type> {
+        &self.primitive_never
+    }
+
+    pub fn type_void(&self) -> &Arc<Type> {
+        &self.primitive_void
+    }
+
+    pub fn type_table(&self) -> &Arc<Type> {
+        &self.primitive_table
+    }
+
+    pub fn type_coroutine(&self) -> &Arc<Type> {
+        &self.primitive_coroutine
+    }
+
+    /// Create a primitive type using cached instance (avoids allocation for primitives)
+    pub fn new_primitive_type(&self, prim: PrimitiveType, span: Span) -> Type {
+        Type::new(TypeKind::Primitive(prim), span)
+    }
+
+    /// Get number type (clones Arc for backward compatibility)
+    pub fn get_number_type(&self, _span: Span) -> Type {
+        (*self.primitive_number).clone()
+    }
+
+    /// Get string type (clones Arc for backward compatibility)
+    pub fn get_string_type(&self, _span: Span) -> Type {
+        (*self.primitive_string).clone()
+    }
+
+    /// Get boolean type (clones Arc for backward compatibility)
+    pub fn get_boolean_type(&self, _span: Span) -> Type {
+        (*self.primitive_boolean).clone()
+    }
+
+    /// Get unknown type (clones Arc for backward compatibility)
+    pub fn get_unknown_type(&self, _span: Span) -> Type {
+        (*self.primitive_unknown).clone()
+    }
+
+    /// Get void type (clones Arc for backward compatibility)
+    pub fn get_void_type(&self, _span: Span) -> Type {
+        (*self.primitive_void).clone()
+    }
+
+    /// Get nil type (clones Arc for backward compatibility)
+    pub fn get_nil_type(&self, _span: Span) -> Type {
+        (*self.primitive_nil).clone()
+    }
+
+    /// Get integer type (clones Arc for backward compatibility)
+    pub fn get_integer_type(&self, _span: Span) -> Type {
+        (*self.primitive_integer).clone()
+    }
+
+    /// Get never type (clones Arc for backward compatibility)
+    pub fn get_never_type(&self, _span: Span) -> Type {
+        (*self.primitive_never).clone()
+    }
+
+    /// Get table type (clones Arc for backward compatibility)
+    pub fn get_table_type(&self, _span: Span) -> Type {
+        (*self.primitive_table).clone()
     }
 
     /// Check if a type name is defined
@@ -258,6 +394,38 @@ impl TypeEnvironment {
         self.generic_type_aliases.get(name)
     }
 
+    /// Instantiate a generic type alias with the given type arguments, with caching
+    pub fn instantiate_generic_type(
+        &self,
+        name: &str,
+        type_args: &[Type],
+        _span: Span,
+    ) -> Result<Type, String> {
+        let cache_key = GenericInstantiationCacheKey {
+            name: name.to_string(),
+            type_args_hash: Self::compute_type_args_fingerprint(type_args),
+        };
+
+        let mut cache = self.generic_instantiation_cache.borrow_mut();
+        if let Some(cached) = cache.get(&cache_key) {
+            return Ok(cached.clone());
+        }
+
+        let generic_alias = self
+            .generic_type_aliases
+            .get(name)
+            .ok_or_else(|| format!("Generic type '{}' not found", name))?;
+
+        let instantiated = crate::types::generics::instantiate_type(
+            &generic_alias.typ,
+            &generic_alias.type_parameters,
+            type_args,
+        )?;
+
+        cache.insert(cache_key, instantiated.clone());
+        Ok(instantiated)
+    }
+
     /// Check if a name is a built-in utility type
     pub fn is_utility_type(name: &str) -> bool {
         matches!(
@@ -277,7 +445,83 @@ impl TypeEnvironment {
         )
     }
 
-    /// Resolve a utility type with type arguments
+    fn compute_type_args_fingerprint(type_args: &[Type]) -> u64 {
+        let mut hash = 0u64;
+        for typ in type_args {
+            hash = hash.wrapping_mul(31);
+            hash ^= Self::type_fingerprint(typ);
+        }
+        hash
+    }
+
+    fn type_fingerprint(typ: &Type) -> u64 {
+        let kind_hash = match &typ.kind {
+            TypeKind::Primitive(p) => match p {
+                PrimitiveType::Nil => 1,
+                PrimitiveType::Boolean => 2,
+                PrimitiveType::Number => 3,
+                PrimitiveType::Integer => 4,
+                PrimitiveType::String => 5,
+                PrimitiveType::Unknown => 6,
+                PrimitiveType::Never => 7,
+                PrimitiveType::Void => 8,
+                PrimitiveType::Table => 9,
+                PrimitiveType::Coroutine => 10,
+                PrimitiveType::Thread => 11,
+            },
+            TypeKind::Object(obj) => 100u64.wrapping_add(obj.members.len() as u64),
+            TypeKind::Array(elem) => 200u64
+                .wrapping_mul(31)
+                .wrapping_add(Self::type_fingerprint(elem)),
+            TypeKind::Function(_) => 300,
+            TypeKind::Union(types) => {
+                let mut h = 400u64;
+                for t in types {
+                    h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
+                }
+                h
+            }
+            TypeKind::Intersection(types) => {
+                let mut h = 500u64;
+                for t in types {
+                    h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
+                }
+                h
+            }
+            TypeKind::Reference(_type_ref) => 600,
+            TypeKind::KeyOf(_) => 700,
+            TypeKind::Mapped(_) => 800,
+            TypeKind::Conditional(_) => 900,
+            TypeKind::TemplateLiteral(_) => 1000,
+            TypeKind::TypeQuery(_) => 1100,
+            TypeKind::Tuple(types) => {
+                let mut h = 1200u64;
+                for t in types {
+                    h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
+                }
+                h
+            }
+            TypeKind::Variadic(inner) => 1300u64
+                .wrapping_mul(31)
+                .wrapping_add(Self::type_fingerprint(inner)),
+            TypeKind::Nullable(inner) => 1400u64
+                .wrapping_mul(31)
+                .wrapping_add(Self::type_fingerprint(inner)),
+            TypeKind::Namespace(path) => {
+                let mut h = 1500u64;
+                for part in path {
+                    for c in part.chars() {
+                        h = h.wrapping_mul(31).wrapping_add(c as u64);
+                    }
+                }
+                h
+            }
+            _ => 9999,
+        };
+        kind_hash.wrapping_add(typ.span.start as u64)
+    }
+
+    /// Resolve a utility type with caching
     pub fn resolve_utility_type(
         &self,
         name: &str,
@@ -286,8 +530,21 @@ impl TypeEnvironment {
         interner: &typedlua_parser::string_interner::StringInterner,
         common_ids: &typedlua_parser::string_interner::CommonIdentifiers,
     ) -> Result<Type, String> {
+        let cache_key = UtilityTypeCacheKey {
+            name: name.to_string(),
+            type_args_hash: Self::compute_type_args_fingerprint(type_args),
+        };
+
+        let mut cache = self.utility_type_cache.borrow_mut();
+        if let Some(cached) = cache.get(&cache_key) {
+            return Ok(cached.clone());
+        }
+
         use crate::types::utility_types::apply_utility_type;
-        apply_utility_type(name, type_args, span, interner, common_ids)
+        let result = apply_utility_type(name, type_args, span, interner, common_ids)?;
+
+        cache.insert(cache_key, result.clone());
+        Ok(result)
     }
 }
 

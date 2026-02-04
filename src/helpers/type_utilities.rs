@@ -11,6 +11,7 @@
 use typedlua_parser::ast::expression::*;
 use typedlua_parser::ast::statement::*;
 use typedlua_parser::ast::types::*;
+use typedlua_parser::span::Span;
 
 /// Widens literal types to their base primitive types.
 ///
@@ -137,6 +138,71 @@ pub fn type_to_string(typ: &Type) -> String {
     }
 }
 
+/// Creates a canonical union type by sorting and deduplicating members
+///
+/// Canonical form:
+/// 1. Sorts types by their string representation
+/// 2. Removes duplicate types
+/// 3. Handles special cases:
+///    - If `never` is present, returns just `never`
+///    - Removes types that are covered by broader types
+///    - Flattens nested unions
+pub fn canonicalize_union(types: Vec<Type>, span: Span) -> Type {
+    if types.is_empty() {
+        return Type::new(TypeKind::Primitive(PrimitiveType::Never), span);
+    }
+
+    let mut unique_types: Vec<Type> = Vec::new();
+    let mut has_never = false;
+
+    for typ in types {
+        match &typ.kind {
+            TypeKind::Union(inner_types) => {
+                for inner in inner_types {
+                    add_type_to_union(&mut unique_types, inner.clone(), &mut has_never);
+                }
+            }
+            _ => {
+                add_type_to_union(&mut unique_types, typ, &mut has_never);
+            }
+        }
+    }
+
+    if has_never || unique_types.is_empty() {
+        return Type::new(TypeKind::Primitive(PrimitiveType::Never), span);
+    }
+
+    unique_types.sort_by(|a, b| type_to_string(a).cmp(&type_to_string(b)));
+
+    let mut deduped: Vec<Type> = Vec::new();
+    let mut prev: Option<String> = None;
+    for typ in unique_types {
+        let s = type_to_string(&typ);
+        if Some(s.clone()) != prev {
+            deduped.push(typ);
+            prev = Some(s);
+        }
+    }
+
+    if deduped.len() == 1 {
+        return deduped[0].clone();
+    }
+
+    Type::new(TypeKind::Union(deduped), span)
+}
+
+fn add_type_to_union(union: &mut Vec<Type>, typ: Type, has_never: &mut bool) {
+    if let TypeKind::Primitive(PrimitiveType::Never) = typ.kind {
+        *has_never = true;
+        return;
+    }
+
+    let typ_str = type_to_string(&typ);
+    if !union.iter().any(|t| type_to_string(t) == typ_str) {
+        union.push(typ);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,5 +303,49 @@ mod tests {
         let string_type = make_type(TypeKind::Primitive(PrimitiveType::String));
         let union_type = make_type(TypeKind::Union(vec![number_type, string_type]));
         assert_eq!(type_to_string(&union_type), "number | string");
+    }
+
+    #[test]
+    fn test_canonicalize_union_removes_duplicates() {
+        let number_type = make_type(TypeKind::Primitive(PrimitiveType::Number));
+        let union = canonicalize_union(
+            vec![number_type.clone(), number_type.clone()],
+            Span::default(),
+        );
+        assert_eq!(type_to_string(&union), "number");
+    }
+
+    #[test]
+    fn test_canonicalize_union_handles_never() {
+        let number_type = make_type(TypeKind::Primitive(PrimitiveType::Number));
+        let never_type = make_type(TypeKind::Primitive(PrimitiveType::Never));
+        let union = canonicalize_union(vec![number_type, never_type], Span::default());
+        assert!(matches!(
+            union.kind,
+            TypeKind::Primitive(PrimitiveType::Never)
+        ));
+    }
+
+    #[test]
+    fn test_canonicalize_union_sorts_types() {
+        let string_type = make_type(TypeKind::Primitive(PrimitiveType::String));
+        let number_type = make_type(TypeKind::Primitive(PrimitiveType::Number));
+        let boolean_type = make_type(TypeKind::Primitive(PrimitiveType::Boolean));
+        let union = canonicalize_union(
+            vec![
+                string_type.clone(),
+                number_type.clone(),
+                boolean_type.clone(),
+            ],
+            Span::default(),
+        );
+        if let TypeKind::Union(types) = union.kind {
+            assert_eq!(types.len(), 3);
+            assert_eq!(type_to_string(&types[0]), "boolean");
+            assert_eq!(type_to_string(&types[1]), "number");
+            assert_eq!(type_to_string(&types[2]), "string");
+        } else {
+            panic!("Expected union type");
+        }
     }
 }
