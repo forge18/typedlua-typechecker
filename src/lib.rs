@@ -6,6 +6,7 @@ pub mod module_resolver;
 pub mod phases;
 pub mod state;
 pub mod stdlib;
+pub mod test_utils;
 pub mod types;
 pub mod utils;
 pub mod visitors;
