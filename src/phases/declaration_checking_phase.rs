@@ -18,11 +18,11 @@ use crate::visitors::{AccessControl, AccessControlVisitor, ClassMemberInfo, Clas
 use crate::TypeCheckError;
 use typedlua_parser::ast::expression::Literal;
 use typedlua_parser::ast::statement::{
-    AccessModifier, ClassDeclaration<'arena>, ClassMember<'arena>, EnumDeclaration<'arena>, InterfaceDeclaration<'arena>,
-    InterfaceMember<'arena>, TypeAliasDeclaration<'arena>,
+    AccessModifier, ClassDeclaration, ClassMember, EnumDeclaration, InterfaceDeclaration,
+    InterfaceMember, TypeAliasDeclaration,
 };
 use typedlua_parser::ast::types::{
-    ObjectType<'arena>, ObjectTypeMember<'arena>, PrimitiveType, Type<'arena>, TypeKind, TypeReference<'arena>,
+    ObjectType, ObjectTypeMember, PrimitiveType, Type, TypeKind, TypeReference,
 };
 use typedlua_parser::prelude::EnumValue;
 use typedlua_parser::string_interner::StringInterner;
@@ -82,7 +82,7 @@ pub fn check_type_alias<'arena>(
     let typ_to_register = alias.type_annotation.clone();
 
     // Also register in symbol table for export extraction
-    let symbol = Symbol<'arena> {
+    let symbol = Symbol {
         name: alias_name.clone(),
         typ: typ_to_register,
         kind: SymbolKind::TypeAlias,
@@ -122,7 +122,7 @@ pub fn check_enum_declaration<'arena>(
 
     // Register enum name as a symbol so it can be referenced as a value
     let enum_ref_type = Type::new(
-        TypeKind::Reference(TypeReference<'arena> {
+        TypeKind::Reference(TypeReference {
             name: enum_decl.name.clone(),
             type_arguments: None,
             span: enum_decl.span,
@@ -254,7 +254,7 @@ pub fn check_interface_declaration<'arena>(
 
         // Create placeholder object type with interface members
         let obj_type = Type::new(
-            TypeKind::Object(ObjectType<'arena> {
+            TypeKind::Object(ObjectType {
                 members: iface
                     .members
                     .iter()
@@ -274,7 +274,7 @@ pub fn check_interface_declaration<'arena>(
             .map_err(|e| TypeCheckError::new(e, iface.span))?;
 
         // Register in symbol table
-        let symbol = Symbol<'arena> {
+        let symbol = Symbol {
             name: iface_name,
             typ: obj_type.clone(),
             kind: SymbolKind::Interface,
@@ -350,7 +350,7 @@ pub fn check_interface_declaration<'arena>(
 
     // Create the interface type
     let iface_type = Type::new(
-        TypeKind::Object(ObjectType<'arena> {
+        TypeKind::Object(ObjectType {
             members: members.clone(),
             span: iface.span,
         }),
@@ -366,7 +366,7 @@ pub fn check_interface_declaration<'arena>(
         .map_err(|e| TypeCheckError::new(e, iface.span))?;
 
     // Register in symbol table
-    let symbol = Symbol<'arena> {
+    let symbol = Symbol {
         name: iface_name,
         typ: iface_type.clone(),
         kind: SymbolKind::Interface,
@@ -481,7 +481,7 @@ pub fn check_rich_enum_declaration<'arena>(
     }
 
     let enum_type = Type::new(
-        TypeKind::Reference(TypeReference<'arena> {
+        TypeKind::Reference(TypeReference {
             name: enum_decl.name.clone(),
             type_arguments: None,
             span: enum_decl.span,
@@ -518,7 +518,7 @@ pub fn register_class_symbol<'arena>(
 
     // Register the class name as a symbol in the symbol table so `new ClassName()` works
     let class_type = Type::new(
-        TypeKind::Reference(TypeReference<'arena> {
+        TypeKind::Reference(TypeReference {
             name: class_decl.name.clone(),
             type_arguments: None,
             span: class_decl.span,
@@ -698,7 +698,7 @@ pub fn register_class_type_parameters(
         for type_param in type_params {
             let param_name = interner.resolve(type_param.name.node).to_string();
             let param_type = Type::new(
-                TypeKind::Reference(TypeReference<'arena> {
+                TypeKind::Reference(TypeReference {
                     name: type_param.name.clone(),
                     type_arguments: None,
                     span: type_param.span,
@@ -798,7 +798,7 @@ pub fn register_function_type_parameters(
     for type_param in type_params {
         let param_name = interner.resolve(type_param.name.node).to_string();
         let param_type = Type::new(
-            TypeKind::Reference(TypeReference<'arena> {
+            TypeKind::Reference(TypeReference {
                 name: type_param.name.clone(),
                 type_arguments: None,
                 span: type_param.span,

@@ -1,47 +1,47 @@
 use rustc_hash::FxHashMap;
-use typedlua_parser::ast::expression::{BinaryOp, Expression<'arena>, ExpressionKind, Literal, UnaryOp};
-use typedlua_parser::ast::types::{PrimitiveType, Type<'arena>, TypeKind};
+use typedlua_parser::ast::expression::{BinaryOp, Expression, ExpressionKind, Literal, UnaryOp};
+use typedlua_parser::ast::types::{PrimitiveType, Type, TypeKind};
 use typedlua_parser::string_interner::StringId;
 
 /// Trait for type narrowing operations
 ///
 /// This trait defines the interface for narrowing types based on conditions and patterns.
 /// It is used by the type checker to refine variable types in conditional branches.
-pub trait NarrowingVisitor {
+pub trait NarrowingVisitor<'arena> {
     /// Narrow types based on a condition expression
     ///
     /// Returns (then_context, else_context) with refined types for each branch.
     /// The then_context contains types that apply when the condition is true,
     /// and the else_context contains types that apply when the condition is false.
-    fn narrow_from_condition<'arena>(
+    fn narrow_from_condition(
         &self,
         condition: &Expression<'arena>,
-        base_ctx: &NarrowingContext,
+        base_ctx: &NarrowingContext<'arena>,
         original_types: &FxHashMap<StringId, Type<'arena>>,
         interner: &typedlua_parser::string_interner::StringInterner,
-    ) -> (NarrowingContext, NarrowingContext);
+    ) -> (NarrowingContext<'arena>, NarrowingContext<'arena>);
 
     /// Get the current narrowing context
-    fn get_context(&self) -> &NarrowingContext;
+    fn get_context(&self) -> &NarrowingContext<'arena>;
 
     /// Get a mutable reference to the narrowing context
-    fn get_context_mut(&mut self) -> &mut NarrowingContext;
+    fn get_context_mut(&mut self) -> &mut NarrowingContext<'arena>;
 }
 
 /// Type narrowing context - tracks refined types for variables in the current scope
 #[derive(Debug, Clone)]
-pub struct NarrowingContext {
+pub struct NarrowingContext<'arena> {
     /// Map from variable name to narrowed type
     narrowed_types: FxHashMap<StringId, Type<'arena>>,
 }
 
-impl Default for NarrowingContext {
+impl<'arena> Default for NarrowingContext<'arena> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl NarrowingContext {
+impl<'arena> NarrowingContext<'arena> {
     pub fn new() -> Self {
         Self {
             narrowed_types: FxHashMap::default(),
@@ -87,11 +87,11 @@ impl NarrowingContext {
 }
 
 /// Type narrower implementation that tracks narrowed types
-pub struct TypeNarrower {
-    context: NarrowingContext,
+pub struct TypeNarrower<'arena> {
+    context: NarrowingContext<'arena>,
 }
 
-impl TypeNarrower {
+impl<'arena> TypeNarrower<'arena> {
     /// Create a new type narrower with an empty context
     pub fn new() -> Self {
         Self {
@@ -100,28 +100,28 @@ impl TypeNarrower {
     }
 }
 
-impl Default for TypeNarrower {
+impl<'arena> Default for TypeNarrower<'arena> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl NarrowingVisitor for TypeNarrower {
-    fn narrow_from_condition<'arena>(
+impl<'arena> NarrowingVisitor<'arena> for TypeNarrower<'arena> {
+    fn narrow_from_condition(
         &self,
         condition: &Expression<'arena>,
-        base_ctx: &NarrowingContext,
+        base_ctx: &NarrowingContext<'arena>,
         original_types: &FxHashMap<StringId, Type<'arena>>,
         interner: &typedlua_parser::string_interner::StringInterner,
-    ) -> (NarrowingContext, NarrowingContext) {
+    ) -> (NarrowingContext<'arena>, NarrowingContext<'arena>) {
         narrow_type_from_condition(condition, base_ctx, original_types, interner)
     }
 
-    fn get_context(&self) -> &NarrowingContext {
+    fn get_context(&self) -> &NarrowingContext<'arena> {
         &self.context
     }
 
-    fn get_context_mut(&mut self) -> &mut NarrowingContext {
+    fn get_context_mut(&mut self) -> &mut NarrowingContext<'arena> {
         &mut self.context
     }
 }
@@ -130,10 +130,10 @@ impl NarrowingVisitor for TypeNarrower {
 /// Returns (then_context, else_context) with refined types for each branch
 pub fn narrow_type_from_condition<'arena>(
     condition: &Expression<'arena>,
-    base_ctx: &NarrowingContext,
+    base_ctx: &NarrowingContext<'arena>,
     original_types: &FxHashMap<StringId, Type<'arena>>,
     interner: &typedlua_parser::string_interner::StringInterner,
-) -> (NarrowingContext, NarrowingContext) {
+) -> (NarrowingContext<'arena>, NarrowingContext<'arena>) {
     let mut then_ctx = base_ctx.clone_for_branch();
     let mut else_ctx = base_ctx.clone_for_branch();
 
@@ -404,7 +404,7 @@ fn extract_nil_check<'arena>(
 }
 
 /// Convert typeof string to a type
-fn typeof_string_to_type(type_name: &str) -> Option<Type> {
+fn typeof_string_to_type<'arena>(type_name: &str) -> Option<Type<'arena>> {
     let span = typedlua_parser::span::Span::new(0, 0, 0, 0);
     match type_name {
         "nil" => Some(Type::new(TypeKind::Primitive(PrimitiveType::Nil), span)),
@@ -417,7 +417,7 @@ fn typeof_string_to_type(type_name: &str) -> Option<Type> {
 }
 
 /// Exclude a type from a union
-fn exclude_type(typ: &Type<'arena>, to_exclude: &Type<'arena>) -> Option<Type> {
+fn exclude_type<'arena>(typ: &Type<'arena>, to_exclude: &Type<'arena>) -> Option<Type<'arena>> {
     match &typ.kind {
         TypeKind::Union(types) => {
             let remaining: Vec<Type<'arena>> = types
@@ -446,7 +446,7 @@ fn exclude_type(typ: &Type<'arena>, to_exclude: &Type<'arena>) -> Option<Type> {
 }
 
 /// Remove nil from a type (for non-nil narrowing)
-fn remove_nil_from_type(typ: &Type<'arena>) -> Option<Type> {
+fn remove_nil_from_type<'arena>(typ: &Type<'arena>) -> Option<Type<'arena>> {
     match &typ.kind {
         TypeKind::Union(types) => {
             let remaining: Vec<Type<'arena>> = types.iter().filter(|t| !is_nil_type(t)).cloned().collect();
@@ -471,7 +471,7 @@ fn remove_nil_from_type(typ: &Type<'arena>) -> Option<Type> {
 }
 
 /// Check if a type is nil (handles both Literal(Nil) and Primitive(Nil))
-fn is_nil_type(typ: &Type<'arena>) -> bool {
+fn is_nil_type<'arena>(typ: &Type<'arena>) -> bool {
     matches!(
         typ.kind,
         TypeKind::Primitive(PrimitiveType::Nil) | TypeKind::Literal(Literal::Nil)
@@ -479,7 +479,7 @@ fn is_nil_type(typ: &Type<'arena>) -> bool {
 }
 
 /// Make a type truthy (remove nil and false)
-fn make_truthy_type(typ: &Type<'arena>) -> Option<Type> {
+fn make_truthy_type<'arena>(typ: &Type<'arena>) -> Option<Type<'arena>> {
     match &typ.kind {
         TypeKind::Union(types) => {
             let truthy: Vec<Type<'arena>> = types
@@ -508,7 +508,7 @@ fn make_truthy_type(typ: &Type<'arena>) -> Option<Type> {
 }
 
 /// Make a type falsy (only nil or false)
-fn make_falsy_type(typ: &Type<'arena>) -> Option<Type> {
+fn make_falsy_type<'arena>(typ: &Type<'arena>) -> Option<Type<'arena>> {
     match &typ.kind {
         TypeKind::Union(types) => {
             let falsy: Vec<Type<'arena>> = types.iter().filter(|t| is_falsy_type(t)).cloned().collect();
@@ -533,7 +533,7 @@ fn make_falsy_type(typ: &Type<'arena>) -> Option<Type> {
 }
 
 /// Check if a type is falsy (nil or false)
-fn is_falsy_type(typ: &Type<'arena>) -> bool {
+fn is_falsy_type<'arena>(typ: &Type<'arena>) -> bool {
     matches!(
         typ.kind,
         TypeKind::Primitive(PrimitiveType::Nil)
@@ -543,7 +543,7 @@ fn is_falsy_type(typ: &Type<'arena>) -> bool {
 }
 
 /// Simple type equality check
-fn types_equal(t1: &Type<'arena>, t2: &Type<'arena>) -> bool {
+fn types_equal<'arena>(t1: &Type<'arena>, t2: &Type<'arena>) -> bool {
     match (&t1.kind, &t2.kind) {
         (TypeKind::Primitive(p1), TypeKind::Primitive(p2)) => p1 == p2,
         (TypeKind::Literal(l1), TypeKind::Literal(l2)) => l1 == l2,
@@ -971,13 +971,13 @@ mod tests {
         let x_id = interner.intern("x");
 
         // x == nil
-        let left = Expression<'arena> {
+        let left = Expression {
             kind: ExpressionKind::Identifier(x_id),
             span: make_span(),
             annotated_type: None,
             receiver_class: None,
         };
-        let right = Expression<'arena> {
+        let right = Expression {
             kind: ExpressionKind::Literal(Literal::Nil),
             span: make_span(),
             annotated_type: None,
@@ -997,13 +997,13 @@ mod tests {
         let x_id = interner.intern("x");
 
         // nil == x
-        let left = Expression<'arena> {
+        let left = Expression {
             kind: ExpressionKind::Literal(Literal::Nil),
             span: make_span(),
             annotated_type: None,
             receiver_class: None,
         };
-        let right = Expression<'arena> {
+        let right = Expression {
             kind: ExpressionKind::Identifier(x_id),
             span: make_span(),
             annotated_type: None,
@@ -1020,13 +1020,13 @@ mod tests {
         let x_id = interner.intern("x");
 
         // x == "string" - not a nil check
-        let left = Expression<'arena> {
+        let left = Expression {
             kind: ExpressionKind::Identifier(x_id),
             span: make_span(),
             annotated_type: None,
             receiver_class: None,
         };
-        let right = Expression<'arena> {
+        let right = Expression {
             kind: ExpressionKind::Literal(Literal::String("hello".to_string())),
             span: make_span(),
             annotated_type: None,

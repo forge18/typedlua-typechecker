@@ -14,7 +14,7 @@ use typedlua_parser::ast::pattern::{ArrayPatternElement, Pattern};
 use typedlua_parser::ast::statement::{Block, OperatorKind, Statement};
 use typedlua_parser::ast::types::*;
 use typedlua_parser::prelude::{
-    Argument<'arena>, MatchArm, MatchArmBody, MatchExpression<'arena>, PropertySignature<'arena>,
+    Argument, MatchArm, MatchArmBody, MatchExpression, PropertySignature,
 };
 use typedlua_parser::span::Span;
 use typedlua_parser::string_interner::StringInterner;
@@ -35,7 +35,7 @@ struct PatternBindings {
 /// Trait for type inference operations
 pub trait TypeInferenceVisitor: TypeCheckVisitor {
     /// Infer the type of an expression
-    fn infer_expression(&mut self, expr: &mut Expression<'arena>) -> Result<Type, TypeCheckError>;
+    fn infer_expression<'arena>(&mut self, expr: &mut Expression<'arena>) -> Result<Type, TypeCheckError>;
 
     /// Infer type of binary operation
     fn infer_binary_op<'arena>(
@@ -80,16 +80,16 @@ pub trait TypeInferenceVisitor: TypeCheckVisitor {
     ) -> Result<Type, TypeCheckError>;
 
     /// Infer type of index access
-    fn infer_index(&self, obj_type: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
+    fn infer_index<'arena>(&self, obj_type: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
 
     /// Make a type optional by adding nil to the union
-    fn make_optional(&self, typ: Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
+    fn make_optional<'arena>(&self, typ: Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
 
     /// Remove nil from a type
-    fn remove_nil(&self, typ: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
+    fn remove_nil<'arena>(&self, typ: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError>;
 
     /// Check if a type is nil
-    fn is_nil(&self, typ: &Type<'arena>) -> bool;
+    fn is_nil<'arena>(&self, typ: &Type<'arena>) -> bool;
 
     /// Infer type of null coalescing operation
     fn infer_null_coalesce<'arena>(
@@ -100,7 +100,7 @@ pub trait TypeInferenceVisitor: TypeCheckVisitor {
     ) -> Result<Type, TypeCheckError>;
 
     /// Check match expression and return result type
-    fn check_match(&mut self, match_expr: &mut MatchExpression<'arena>) -> Result<Type, TypeCheckError>;
+    fn check_match<'arena>(&mut self, match_expr: &mut MatchExpression<'arena>) -> Result<Type, TypeCheckError>;
 
     /// Check a pattern and bind variables
     fn check_pattern<'arena>(
@@ -148,7 +148,7 @@ impl TypeCheckVisitor for TypeInferrer<'_> {
 
 impl TypeInferenceVisitor for TypeInferrer<'_> {
     #[instrument(skip(self, expr), fields(expr_kind))]
-    fn infer_expression(&mut self, expr: &mut Expression<'arena>) -> Result<Type, TypeCheckError> {
+    fn infer_expression<'arena>(&mut self, expr: &mut Expression<'arena>) -> Result<Type, TypeCheckError> {
         let span = expr.span;
         let expr_kind = format!("{:?}", expr.kind);
 
@@ -451,7 +451,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
                             let value_type = self.infer_expression(value)?;
 
                             // Create a property signature
-                            let prop_sig = PropertySignature<'arena> {
+                            let prop_sig = PropertySignature {
                                 is_readonly: false,
                                 name: key.clone(),
                                 is_optional: false,
@@ -517,7 +517,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
                 }
 
                 Ok(Type::new(
-                    TypeKind::Object(ObjectType<'arena> { members, span }),
+                    TypeKind::Object(ObjectType { members, span }),
                     span,
                 ))
             }
@@ -574,7 +574,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
                 self.symbol_table.exit_scope();
 
                 // Build the function type
-                let func_type = FunctionType<'arena> {
+                let func_type = FunctionType {
                     type_parameters: func_expr.type_parameters.clone(),
                     parameters: func_expr.parameters.clone(),
                     return_type: Box::new(
@@ -716,7 +716,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
 
                         // Return a Reference type to the class, preserving type arguments
                         Ok(Type::new(
-                            TypeKind::Reference(TypeReference<'arena> {
+                            TypeKind::Reference(TypeReference {
                                 name: typedlua_parser::ast::Spanned::new(*name, span),
                                 type_arguments: type_args.clone(),
                                 span,
@@ -1134,7 +1134,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
         }
     }
 
-    fn infer_index(&self, obj_type: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
+    fn infer_index<'arena>(&self, obj_type: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
         match &obj_type.kind {
             TypeKind::Array(elem_type) => Ok((**elem_type).clone()),
             TypeKind::Tuple(types) => {
@@ -1151,12 +1151,12 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
         }
     }
 
-    fn make_optional(&self, typ: Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
+    fn make_optional<'arena>(&self, typ: Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
         let nil_type = Type::new(TypeKind::Primitive(PrimitiveType::Nil), span);
         Ok(Type::new(TypeKind::Union(vec![typ, nil_type]), span))
     }
 
-    fn remove_nil(&self, typ: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
+    fn remove_nil<'arena>(&self, typ: &Type<'arena>, span: Span) -> Result<Type, TypeCheckError> {
         match &typ.kind {
             TypeKind::Union(types) => {
                 let non_nil_types: Vec<Type<'arena>> =
@@ -1179,7 +1179,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
         }
     }
 
-    fn is_nil(&self, typ: &Type<'arena>) -> bool {
+    fn is_nil<'arena>(&self, typ: &Type<'arena>) -> bool {
         match &typ.kind {
             TypeKind::Primitive(PrimitiveType::Nil) => true,
             TypeKind::Literal(Literal::Nil) => true,
@@ -1214,7 +1214,7 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
     }
 
     #[instrument(skip(self, match_expr), fields(arms = match_expr.arms.len()))]
-    fn check_match(&mut self, match_expr: &mut MatchExpression<'arena>) -> Result<Type, TypeCheckError> {
+    fn check_match<'arena>(&mut self, match_expr: &mut MatchExpression<'arena>) -> Result<Type, TypeCheckError> {
         debug!(span = ?match_expr.span, "Checking match expression");
 
         // Type check the value being matched
@@ -1509,7 +1509,7 @@ impl TypeInferrer<'_> {
     /// known types, interfaces, or classes). Used to guard the access_control fallback
     /// in infer_member so we don't return raw type annotations with unsubstituted
     /// type parameters from generic classes.
-    fn type_has_unresolved_params(&self, ty: &Type<'arena>) -> bool {
+    fn type_has_unresolved_params<'arena>(&self, ty: &Type<'arena>) -> bool {
         match &ty.kind {
             TypeKind::Reference(type_ref) => {
                 let name = self.interner.resolve(type_ref.name.node);
@@ -1528,7 +1528,7 @@ impl TypeInferrer<'_> {
 
     /// Check if a type has an operator overload for the given binary operation.
     /// Returns the operator's return type if found.
-    fn check_operator_overload(&self, operand_type: &Type<'arena>, op: BinaryOp) -> Option<Type> {
+    fn check_operator_overload<'arena>(&self, operand_type: &Type<'arena>, op: BinaryOp) -> Option<Type> {
         let op_kind = match op {
             BinaryOp::Add => OperatorKind::Add,
             BinaryOp::Subtract => OperatorKind::Subtract,
@@ -2123,7 +2123,7 @@ impl TypeInferrer<'_> {
     }
 
     /// Helper to check if a pattern could match a type
-    fn pattern_could_match(&self, pattern: &Pattern, typ: &Type<'arena>) -> bool {
+    fn pattern_could_match<'arena>(&self, pattern: &Pattern, typ: &Type<'arena>) -> bool {
         match pattern {
             Pattern::Wildcard(_) | Pattern::Identifier(_) => true,
             Pattern::Literal(lit, _) => match &typ.kind {

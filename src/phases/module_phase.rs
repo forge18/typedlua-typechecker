@@ -20,8 +20,8 @@ use crate::TypeCheckError;
 use std::path::PathBuf;
 use std::sync::Arc;
 use typedlua_parser::ast::pattern::Pattern;
-use typedlua_parser::ast::statement::{ExportKind, ImportClause<'arena>, ImportDeclaration<'arena>, Statement};
-use typedlua_parser::ast::types::{ObjectTypeMember, PrimitiveType, Type<'arena>, TypeKind};
+use typedlua_parser::ast::statement::{ExportKind, ImportClause, ImportDeclaration, Statement};
+use typedlua_parser::ast::types::{ObjectTypeMember, PrimitiveType, Type, TypeKind};
 use typedlua_parser::ast::Program;
 use typedlua_parser::prelude::AccessModifier;
 use typedlua_parser::span::Span;
@@ -103,7 +103,7 @@ pub fn extract_exports<'arena>(
                 ExportKind::Default(_expr) => {
                     // For default exports, create a synthetic symbol
                     // Future: infer the type of the expression
-                    let default_symbol = Symbol<'arena> {
+                    let default_symbol = Symbol {
                         name: "default".to_string(),
                         typ: Type::new(
                             TypeKind::Primitive(PrimitiveType::Unknown),

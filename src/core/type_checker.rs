@@ -72,7 +72,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// ```rust,ignore
     /// let checker = TypeChecker::new(handler, &interner, &common);
     /// ```
-    pub fn new<'arena>(
+    pub fn new(
         diagnostic_handler: Arc<dyn DiagnosticHandler>,
         interner: &'a typedlua_parser::string_interner::StringInterner,
         common: &'a typedlua_parser::string_interner::CommonIdentifiers,
@@ -119,7 +119,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// let container = DiContainer::new();
     /// let checker = TypeChecker::new_with_di(&container, &interner, &common);
     /// ```
-    pub fn new_with_di<'arena>(
+    pub fn new_with_di(
         container: &mut crate::DiContainer,
         interner: &'a typedlua_parser::string_interner::StringInterner,
         common: &'a typedlua_parser::string_interner::CommonIdentifiers,
@@ -164,7 +164,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// ```rust,ignore
     /// let checker = TypeChecker::new_with_stdlib(handler, &interner, &common)?;
     /// ```
-    pub fn new_with_stdlib<'arena>(
+    pub fn new_with_stdlib(
         diagnostic_handler: Arc<dyn DiagnosticHandler>,
         interner: &'a typedlua_parser::string_interner::StringInterner,
         common: &'a typedlua_parser::string_interner::CommonIdentifiers,
@@ -214,7 +214,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Create a TypeChecker with module support for multi-module compilation
-    pub fn new_with_module_support<'arena>(
+    pub fn new_with_module_support(
         diagnostic_handler: Arc<dyn DiagnosticHandler>,
         interner: &'a typedlua_parser::string_interner::StringInterner,
         common: &'a typedlua_parser::string_interner::CommonIdentifiers,
@@ -303,7 +303,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
     /// Register a function's signature in the symbol table without checking its body
     /// This is used during the first pass of check_program to enable function hoisting
-    fn register_function_signature<'arena>(
+    fn register_function_signature(
         &mut self,
         decl: &FunctionDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -389,7 +389,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check variable declaration
-    fn check_variable_declaration<'arena>(
+    fn check_variable_declaration(
         &mut self,
         decl: &mut VariableDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -449,7 +449,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Declare symbols from a pattern
-    fn declare_pattern<'arena>(
+    fn declare_pattern(
         &mut self,
         pattern: &Pattern,
         typ: Type<'arena>,
@@ -468,7 +468,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check function declaration
-    fn check_function_declaration<'arena>(
+    fn check_function_declaration(
         &mut self,
         decl: &mut FunctionDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -643,7 +643,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check while statement
-    fn check_while_statement<'arena>(
+    fn check_while_statement(
         &mut self,
         while_stmt: &mut WhileStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -711,7 +711,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check repeat statement
-    fn check_repeat_statement<'arena>(
+    fn check_repeat_statement(
         &mut self,
         repeat_stmt: &mut RepeatStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -723,7 +723,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check return statement
-    fn check_return_statement<'arena>(
+    fn check_return_statement(
         &mut self,
         return_stmt: &mut ReturnStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -806,7 +806,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check interface declaration
-    fn check_interface_declaration<'arena>(
+    fn check_interface_declaration(
         &mut self,
         iface: &mut InterfaceDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -976,7 +976,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
                         // Create object type from interface members
                         let obj_type = Type::new(
-                            TypeKind::Object(ObjectType<'arena> {
+                            TypeKind::Object(ObjectType {
                                 members: iface
                                     .members
                                     .iter()
@@ -1003,7 +1003,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                             .map_err(|e| TypeCheckError::new(e, iface.span))?;
 
                         // Also register in symbol table for export extraction
-                        let symbol = Symbol<'arena> {
+                        let symbol = Symbol {
                             name: iface_name,
                             typ: obj_type,
                             kind: SymbolKind::Interface,
@@ -1051,7 +1051,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check enum declaration
-    fn check_enum_declaration<'arena>(
+    fn check_enum_declaration(
         &mut self,
         enum_decl: &mut EnumDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -1072,7 +1072,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check rich enum declaration with fields, constructor, and methods
-    fn check_rich_enum_declaration<'arena>(
+    fn check_rich_enum_declaration(
         &mut self,
         enum_decl: &mut EnumDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -1166,7 +1166,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
     /// Check class declaration
     #[instrument(skip(self, class_decl), fields(class_name))]
-    fn check_class_declaration<'arena>(
+    fn check_class_declaration(
         &mut self,
         class_decl: &mut ClassDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -1529,7 +1529,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check that a class properly implements an interface
-    fn check_class_implements_interface<'arena>(
+    fn check_class_implements_interface(
         &self,
         class_decl: &ClassDeclaration<'arena>,
         interface: &Type<'arena>,
@@ -1544,7 +1544,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
     /// Validate that all class properties are compatible with interface index signature
     #[allow(dead_code)]
-    fn validate_index_signature<'arena>(
+    fn validate_index_signature(
         &self,
         class_decl: &ClassDeclaration<'arena>,
         index_sig: &IndexSignature<'arena>,
@@ -1666,7 +1666,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check class property
-    fn check_class_property<'arena>(
+    fn check_class_property(
         &mut self,
         prop: &mut PropertyDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -1697,7 +1697,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check constructor
-    fn check_constructor<'arena>(
+    fn check_constructor(
         &mut self,
         ctor: &mut ConstructorDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -2020,7 +2020,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Check operator declaration
-    fn check_operator_declaration<'arena>(
+    fn check_operator_declaration(
         &mut self,
         op: &mut OperatorDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -2325,7 +2325,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     .iter()
                     .map(|member| match member {
                         ObjectTypeMember::Property(prop) => {
-                            ObjectTypeMember::Property(PropertySignature<'arena> {
+                            ObjectTypeMember::Property(PropertySignature {
                                 type_annotation: self.deep_resolve_type(&prop.type_annotation),
                                 ..prop.clone()
                             })
@@ -2401,7 +2401,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// Substitute type parameter references in a type with actual type arguments.
     /// For a generic interface like Container<T>, given type_args [number],
     /// replaces references to T with number.
-    fn substitute_type_args_in_type<'arena>(
+    fn substitute_type_args_in_type(
         &self,
         typ: &Type<'arena>,
         type_args: &[Type],
@@ -2455,7 +2455,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Register a declare function statement in the global scope
-    fn register_declare_function<'arena>(
+    fn register_declare_function(
         &mut self,
         func: &DeclareFunctionStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -2467,7 +2467,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Register a declare const statement in the global scope
-    fn register_declare_const<'arena>(
+    fn register_declare_const(
         &mut self,
         const_decl: &DeclareConstStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -2479,7 +2479,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     }
 
     /// Register a declare namespace statement in the global scope
-    fn register_declare_namespace<'arena>(
+    fn register_declare_namespace(
         &mut self,
         ns: &DeclareNamespaceStatement<'arena>,
     ) -> Result<(), TypeCheckError> {
@@ -2502,7 +2502,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
         // Register string namespace
         let string_members = vec![
-            ObjectTypeMember::Method(MethodSignature<'arena> {
+            ObjectTypeMember::Method(MethodSignature {
                 name: Spanned::new(self.interner.intern("upper"), span),
                 type_parameters: None,
                 parameters: vec![Parameter {
@@ -2517,7 +2517,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                 body: None,
                 span,
             }),
-            ObjectTypeMember::Method(MethodSignature<'arena> {
+            ObjectTypeMember::Method(MethodSignature {
                 name: Spanned::new(self.interner.intern("lower"), span),
                 type_parameters: None,
                 parameters: vec![Parameter {
@@ -2535,7 +2535,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         ];
 
         let string_type = Type::new(
-            TypeKind::Object(ObjectType<'arena> {
+            TypeKind::Object(ObjectType {
                 members: string_members,
                 span,
             }),
@@ -2551,14 +2551,14 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
         // Register math namespace
         let math_members = vec![
-            ObjectTypeMember::Property(PropertySignature<'arena> {
+            ObjectTypeMember::Property(PropertySignature {
                 is_readonly: true,
                 name: Spanned::new(self.interner.intern("pi"), span),
                 is_optional: false,
                 type_annotation: self.type_env.get_number_type(span),
                 span,
             }),
-            ObjectTypeMember::Method(MethodSignature<'arena> {
+            ObjectTypeMember::Method(MethodSignature {
                 name: Spanned::new(self.interner.intern("abs"), span),
                 type_parameters: None,
                 parameters: vec![Parameter {
@@ -2576,7 +2576,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         ];
 
         let math_type = Type::new(
-            TypeKind::Object(ObjectType<'arena> {
+            TypeKind::Object(ObjectType {
                 members: math_members,
                 span,
             }),
@@ -2670,7 +2670,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     ///
     /// Result containing the type checking result or error
     #[instrument(skip(self, program, incremental_checker), fields(module_path = ?module_path))]
-    pub fn check_program_incremental<'arena>(
+    pub fn check_program_incremental(
         &mut self,
         program: &mut Program<'arena>,
         module_path: std::path::PathBuf,
@@ -2740,7 +2740,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     ///
     /// This method extracts all declarations (functions, classes, interfaces, etc.)
     /// and computes stable signature hashes for incremental type checking.
-    pub fn compute_declaration_hashes<'arena>(
+    pub fn compute_declaration_hashes(
         &self,
         program: &Program<'arena>,
         _module_path: std::path::PathBuf,

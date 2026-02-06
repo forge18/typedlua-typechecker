@@ -2,7 +2,7 @@ use rustc_hash::FxHashMap;
 use typedlua_parser::ast::expression::Literal;
 use typedlua_parser::ast::statement::{IndexKeyType, PropertySignature};
 use typedlua_parser::ast::types::{
-    MappedType, MappedTypeModifier, ObjectType<'arena>, ObjectTypeMember<'arena>, PrimitiveType, Type<'arena>, TypeKind,
+    MappedType, MappedTypeModifier, ObjectType, ObjectTypeMember, PrimitiveType, Type, TypeKind,
 };
 use typedlua_parser::ast::Ident;
 use typedlua_parser::span::Span;
@@ -53,7 +53,7 @@ fn partial(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .map(|member| {
                     match member {
                         ObjectTypeMember::Property(prop) => {
-                            ObjectTypeMember::Property(PropertySignature<'arena> {
+                            ObjectTypeMember::Property(PropertySignature {
                                 is_readonly: prop.is_readonly,
                                 name: prop.name.clone(),
                                 is_optional: true, // Make optional
@@ -68,7 +68,7 @@ fn partial(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .collect();
 
             Ok(Type::new(
-                TypeKind::Object(ObjectType<'arena> {
+                TypeKind::Object(ObjectType {
                     members: new_members,
                     span,
                 }),
@@ -97,7 +97,7 @@ fn required(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .map(|member| {
                     match member {
                         ObjectTypeMember::Property(prop) => {
-                            ObjectTypeMember::Property(PropertySignature<'arena> {
+                            ObjectTypeMember::Property(PropertySignature {
                                 is_readonly: prop.is_readonly,
                                 name: prop.name.clone(),
                                 is_optional: false, // Make required
@@ -111,7 +111,7 @@ fn required(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .collect();
 
             Ok(Type::new(
-                TypeKind::Object(ObjectType<'arena> {
+                TypeKind::Object(ObjectType {
                     members: new_members,
                     span,
                 }),
@@ -140,7 +140,7 @@ fn readonly(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .map(|member| {
                     match member {
                         ObjectTypeMember::Property(prop) => {
-                            ObjectTypeMember::Property(PropertySignature<'arena> {
+                            ObjectTypeMember::Property(PropertySignature {
                                 is_readonly: true, // Make readonly
                                 name: prop.name.clone(),
                                 is_optional: prop.is_optional,
@@ -154,7 +154,7 @@ fn readonly(type_args: &[Type], span: Span) -> Result<Type, String> {
                 .collect();
 
             Ok(Type::new(
-                TypeKind::Object(ObjectType<'arena> {
+                TypeKind::Object(ObjectType {
                     members: new_members,
                     span,
                 }),
@@ -222,7 +222,7 @@ fn record(
     use typedlua_parser::ast::Ident;
 
     let key_id = common_ids.key;
-    let index_sig = IndexSignature<'arena> {
+    let index_sig = IndexSignature {
         key_name: Ident::new(key_id, span),
         key_type: index_key_type,
         value_type: value_type.clone(),
@@ -230,7 +230,7 @@ fn record(
     };
 
     Ok(Type::new(
-        TypeKind::Object(ObjectType<'arena> {
+        TypeKind::Object(ObjectType {
             members: vec![ObjectTypeMember::Index(index_sig)],
             span,
         }),
@@ -276,7 +276,7 @@ fn pick(type_args: &[Type], span: Span, interner: &StringInterner) -> Result<Typ
                 .collect();
 
             Ok(Type::new(
-                TypeKind::Object(ObjectType<'arena> {
+                TypeKind::Object(ObjectType {
                     members: new_members,
                     span,
                 }),
@@ -325,7 +325,7 @@ fn omit(type_args: &[Type], span: Span, interner: &StringInterner) -> Result<Typ
                 .collect();
 
             Ok(Type::new(
-                TypeKind::Object(ObjectType<'arena> {
+                TypeKind::Object(ObjectType {
                     members: new_members,
                     span,
                 }),
@@ -573,7 +573,7 @@ pub fn evaluate_mapped_type<'arena>(
                 MappedTypeModifier::None => false,
             };
 
-            ObjectTypeMember::Property(PropertySignature<'arena> {
+            ObjectTypeMember::Property(PropertySignature {
                 is_readonly,
                 name: Ident::new(key_id, mapped.span),
                 is_optional,
@@ -584,7 +584,7 @@ pub fn evaluate_mapped_type<'arena>(
         .collect();
 
     Ok(Type::new(
-        TypeKind::Object(ObjectType<'arena> {
+        TypeKind::Object(ObjectType {
             members,
             span: mapped.span,
         }),
@@ -725,7 +725,7 @@ pub fn evaluate_conditional_type<'arena>(
 }
 
 /// Helper to resolve type references
-fn resolve_type_reference(typ: &Type<'arena>, type_env: &TypeEnvironment<'arena>) -> Type<'arena> {
+fn resolve_type_reference<'arena>(typ: &Type<'arena>, type_env: &TypeEnvironment<'arena>) -> Type<'arena> {
     match &typ.kind {
         TypeKind::Reference(type_ref) => {
             let type_name = type_ref.name.node.to_string();
@@ -739,7 +739,7 @@ fn resolve_type_reference(typ: &Type<'arena>, type_env: &TypeEnvironment<'arena>
 }
 
 /// Helper to check if two types are structurally equal (simplified)
-fn types_structurally_equal(t1: &Type<'arena>, t2: &Type<'arena>) -> bool {
+fn types_structurally_equal<'arena>(t1: &Type<'arena>, t2: &Type<'arena>) -> bool {
     match (&t1.kind, &t2.kind) {
         (TypeKind::Primitive(p1), TypeKind::Primitive(p2)) => p1 == p2,
         (TypeKind::Literal(l1), TypeKind::Literal(l2)) => l1 == l2,
@@ -750,7 +750,7 @@ fn types_structurally_equal(t1: &Type<'arena>, t2: &Type<'arena>) -> bool {
 }
 
 /// Check if a type contains an infer keyword
-fn contains_infer(typ: &Type<'arena>) -> bool {
+fn contains_infer<'arena>(typ: &Type<'arena>) -> bool {
     match &typ.kind {
         TypeKind::Infer(_) => true,
         TypeKind::Array(elem) => contains_infer(elem),
@@ -997,7 +997,7 @@ fn extract_keys_from_type<'arena>(
 // Helper functions
 
 /// Extract string literal keys from a type (for Pick/Omit)
-fn extract_string_literal_keys(typ: &Type<'arena>) -> Result<Vec<String>, String> {
+fn extract_string_literal_keys<'arena>(typ: &Type<'arena>) -> Result<Vec<String>, String> {
     match &typ.kind {
         TypeKind::Literal(Literal::String(s)) => Ok(vec![s.clone()]),
         TypeKind::Union(types) => types
@@ -1017,7 +1017,7 @@ fn extract_string_literal_keys(typ: &Type<'arena>) -> Result<Vec<String>, String
 }
 
 /// Check if a type is nil or void
-fn is_nil_or_void(typ: &Type<'arena>) -> bool {
+fn is_nil_or_void<'arena>(typ: &Type<'arena>) -> bool {
     matches!(
         typ.kind,
         TypeKind::Primitive(PrimitiveType::Nil) | TypeKind::Primitive(PrimitiveType::Void)
@@ -1025,7 +1025,7 @@ fn is_nil_or_void(typ: &Type<'arena>) -> bool {
 }
 
 /// Simple type assignability check
-fn is_assignable_to(source: &Type<'arena>, target: &Type<'arena>) -> bool {
+fn is_assignable_to<'arena>(source: &Type<'arena>, target: &Type<'arena>) -> bool {
     use crate::core::type_compat::TypeCompatibility;
     TypeCompatibility::is_assignable(source, target)
 }
@@ -1169,7 +1169,7 @@ mod tests {
         Span::new(0, 0, 0, 0)
     }
 
-    fn make_object_type(properties: Vec<(&str, Type<'arena>, bool, bool)>) -> Type<'arena> {
+    fn make_object_type<'arena>(properties: Vec<(&str, Type<'arena>, bool, bool)>) -> Type<'arena> {
         let interner = typedlua_parser::string_interner::StringInterner::new();
         make_object_type_with_interner(&interner, properties)
     }
@@ -1182,7 +1182,7 @@ mod tests {
             .into_iter()
             .map(|(name, typ, optional, readonly)| {
                 let name_id = interner.intern(name);
-                ObjectTypeMember::Property(PropertySignature<'arena> {
+                ObjectTypeMember::Property(PropertySignature {
                     is_readonly: readonly,
                     name: Ident::new(name_id, make_span()),
                     is_optional: optional,
@@ -1193,7 +1193,7 @@ mod tests {
             .collect();
 
         Type::new(
-            TypeKind::Object(ObjectType<'arena> {
+            TypeKind::Object(ObjectType {
                 members,
                 span: make_span(),
             }),
@@ -1388,7 +1388,7 @@ mod tests {
         use typedlua_parser::ast::types::FunctionType;
 
         let func = Type::new(
-            TypeKind::Function(FunctionType<'arena> {
+            TypeKind::Function(FunctionType {
                 type_parameters: None,
                 parameters: vec![],
                 return_type: Box::new(Type::new(
@@ -1656,10 +1656,10 @@ mod tests {
         let y_id = interner.intern("y");
 
         let func = Type::new(
-            TypeKind::Function(FunctionType<'arena> {
+            TypeKind::Function(FunctionType {
                 type_parameters: None,
                 parameters: vec![
-                    Parameter<'arena> {
+                    Parameter {
                         pattern: Pattern::Identifier(Ident::new(x_id, make_span())),
                         type_annotation: Some(Type::new(
                             TypeKind::Primitive(PrimitiveType::String),
@@ -1670,7 +1670,7 @@ mod tests {
                         is_optional: false,
                         span: make_span(),
                     },
-                    Parameter<'arena> {
+                    Parameter {
                         pattern: Pattern::Identifier(Ident::new(y_id, make_span())),
                         type_annotation: Some(Type::new(
                             TypeKind::Primitive(PrimitiveType::Number),

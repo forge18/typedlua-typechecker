@@ -45,7 +45,7 @@ pub struct TypeEnvironment<'arena> {
     /// Abstract classes (class name -> is_abstract)
     abstract_classes: FxHashMap<String, bool>,
     /// Class primary constructors (class name -> constructor parameters)
-    class_constructors: FxHashMap<String, Vec<ConstructorParameter<'arena>>>,
+    class_constructors: FxHashMap<String, &'arena [ConstructorParameter<'arena>]>,
     /// Interface type parameter names (interface name -> ordered parameter names)
     interface_type_params: FxHashMap<String, Vec<String>>,
     /// Cached primitive types (singletons)
@@ -360,13 +360,13 @@ impl<'arena> TypeEnvironment<'arena> {
     pub fn register_class_constructor(
         &mut self,
         class_name: String,
-        params: Vec<ConstructorParameter<'arena>>,
+        params: &'arena [ConstructorParameter<'arena>],
     ) {
         self.class_constructors.insert(class_name, params);
     }
 
     /// Get a class's primary constructor parameters
-    pub fn get_class_constructor(&self, class_name: &str) -> Option<&Vec<ConstructorParameter<'arena>>> {
+    pub fn get_class_constructor(&self, class_name: &str) -> Option<&&'arena [ConstructorParameter<'arena>]> {
         self.class_constructors.get(class_name)
     }
 

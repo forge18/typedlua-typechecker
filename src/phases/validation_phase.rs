@@ -22,7 +22,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use typedlua_parser::ast::expression::Expression;
 use typedlua_parser::ast::statement::{
-    ClassMember<'arena>, Decorator<'arena>, DecoratorExpression, IndexSignature<'arena>, MethodDeclaration<'arena>, TypeParameter<'arena>,
+    ClassMember, Decorator, DecoratorExpression, IndexSignature, MethodDeclaration, TypeParameter,
 };
 use typedlua_parser::ast::types::{ObjectTypeMember, Type};
 use typedlua_parser::prelude::ClassDeclaration;
