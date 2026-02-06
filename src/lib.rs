@@ -2,6 +2,7 @@ pub mod cli;
 pub mod core;
 pub mod di;
 pub mod helpers;
+pub mod incremental;
 pub mod module_resolver;
 pub mod phases;
 pub mod state;
@@ -16,6 +17,9 @@ pub use core::type_checker::TypeChecker;
 pub use core::type_compat::TypeCompatibility;
 pub use core::type_environment::TypeEnvironment;
 pub use di::{DiContainer, ServiceLifetime};
+pub use incremental::{
+    CompilationCache, DeclarationId, DependencyGraph, IncrementalChecker, InvalidationResult,
+};
 pub use state::TypeCheckerState;
 pub use types::generics::{
     build_substitutions, check_type_constraints, infer_type_arguments,
