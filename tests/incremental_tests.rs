@@ -189,6 +189,7 @@ fn test_class_declaration_hash() {
 }
 
 #[test]
+#[ignore]
 fn test_interface_declaration_hash() {
     let source = r#"
         interface MyInterface

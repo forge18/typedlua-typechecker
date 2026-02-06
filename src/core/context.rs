@@ -78,8 +78,6 @@ impl TypeCheckContext for TypeCheckContextImpl {
 pub mod test_helpers {
     use super::*;
 
-    use typedlua_parser::string_interner::StringInterner;
-
     // Note: Use proper DI container for creating test contexts
     // This method is commented out due to missing TestDiagnosticHandler
     // pub fn create_test_context() -> TypeCheckContextImpl {
