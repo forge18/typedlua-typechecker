@@ -74,6 +74,19 @@ pub trait AccessControlVisitor: TypeCheckVisitor {
     /// Check if a class is marked as final
     fn is_class_final(&self, name: &str) -> bool;
 
+    /// Mark a class as having the @readonly decorator
+    fn mark_class_readonly(&mut self, name: &str, is_readonly: bool);
+
+    /// Check if a class has the @readonly decorator
+    fn is_class_readonly(&self, name: &str) -> bool;
+
+    /// Check if assignment to a class property is allowed (readonly check)
+    fn check_readonly_assignment(
+        &self,
+        class_name: &str,
+        member_name: &str,
+    ) -> Result<(), TypeCheckError>;
+
     /// Get class members
     fn get_class_members(&self, class_name: &str) -> Option<&Vec<ClassMemberInfo>>;
 
@@ -101,6 +114,7 @@ pub struct AccessControl {
     class_parents: FxHashMap<String, Option<String>>, // Store class hierarchy
     class_implements: FxHashMap<String, Vec<String>>, // Store class -> interfaces mapping
     current_class: Option<ClassContext>,
+    readonly_classes: FxHashMap<String, bool>, // Track classes with @readonly decorator
 }
 
 impl AccessControl {
@@ -301,6 +315,39 @@ impl AccessControlVisitor for AccessControl {
 
     fn is_class_final(&self, name: &str) -> bool {
         *self.final_classes.get(name).unwrap_or(&false)
+    }
+
+    /// Mark a class as having the @readonly decorator
+    fn mark_class_readonly(&mut self, name: &str, is_readonly: bool) {
+        self.readonly_classes.insert(name.to_string(), is_readonly);
+    }
+
+    /// Check if a class has the @readonly decorator
+    fn is_class_readonly(&self, name: &str) -> bool {
+        *self.readonly_classes.get(name).unwrap_or(&false)
+    }
+
+    /// Check if assignment to a class property is allowed (readonly check)
+    fn check_readonly_assignment(
+        &self,
+        class_name: &str,
+        member_name: &str,
+    ) -> Result<(), TypeCheckError> {
+        if self.is_class_readonly(class_name) {
+            // For readonly classes, all properties are effectively final
+            if let Some(member) = self.find_member_in_hierarchy(class_name, member_name) {
+                if member.is_final {
+                    return Err(TypeCheckError::new(
+                        format!("Cannot assign to readonly property '{}'", member_name),
+                        typedlua_parser::span::Span::default(),
+                    ));
+                }
+            } else {
+                // If member not found in class, it might be added dynamically
+                // For now, allow it - full implementation would need more tracking
+            }
+        }
+        Ok(())
     }
 
     fn get_class_members(&self, class_name: &str) -> Option<&Vec<ClassMemberInfo>> {

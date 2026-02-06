@@ -261,6 +261,48 @@ impl TypeInferenceVisitor for TypeInferrer<'_> {
                 self.infer_index(&obj_type, span)
             }
 
+            ExpressionKind::Assignment(target, _op, value) => {
+                debug!("Inferring assignment expression");
+
+                let target_type = match &mut target.kind {
+                    ExpressionKind::Member(object, member) => {
+                        let obj_type = self.infer_expression(object.as_mut())?;
+                        let member_name = self.interner.resolve(member.node);
+
+                        if let TypeKind::Reference(type_ref) = &obj_type.kind {
+                            let class_name = self.interner.resolve(type_ref.name.node);
+                            self.access_control
+                                .check_readonly_assignment(&class_name, &member_name)?;
+                        }
+
+                        self.infer_member(&obj_type, &member_name, span)?
+                    }
+                    ExpressionKind::Identifier(name) => {
+                        let name_str = self.interner.resolve(*name);
+                        if let Some(symbol) = self.symbol_table.lookup(&name_str) {
+                            symbol.typ.clone()
+                        } else {
+                            return Err(TypeCheckError::new(
+                                format!("Undefined variable '{}'", name_str),
+                                span,
+                            ));
+                        }
+                    }
+                    _ => Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span),
+                };
+
+                let value_type = self.infer_expression(value)?;
+
+                if !TypeCompatibility::is_assignable(&value_type, &target_type) {
+                    return Err(TypeCheckError::new(
+                        "Type is not assignable".to_string(),
+                        span,
+                    ));
+                }
+
+                Ok(target_type)
+            }
+
             ExpressionKind::OptionalMember(object, member) => {
                 let obj_type = self.infer_expression(object)?;
                 let member_name = self.interner.resolve(member.node);

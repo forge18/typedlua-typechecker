@@ -1173,6 +1173,34 @@ impl<'a> TypeChecker<'a> {
         // Check decorators
         self.check_decorators(&mut class_decl.decorators)?;
 
+        // Check for @readonly decorator and track it
+        let has_readonly =
+            class_decl
+                .decorators
+                .iter()
+                .any(|decorator| match &decorator.expression {
+                    typedlua_parser::ast::statement::DecoratorExpression::Identifier(name) => {
+                        self.interner.resolve(name.node) == "readonly"
+                    }
+                    typedlua_parser::ast::statement::DecoratorExpression::Call {
+                        callee, ..
+                    } => {
+                        if let typedlua_parser::ast::statement::DecoratorExpression::Identifier(
+                            name,
+                        ) = &**callee
+                        {
+                            self.interner.resolve(name.node) == "readonly"
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                });
+
+        if has_readonly {
+            self.access_control.mark_class_readonly(&class_name, true);
+        }
+
         debug!("Checking class {}", class_name);
 
         // Register class symbol (focused function - ~15 lines saved)
