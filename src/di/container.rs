@@ -19,6 +19,12 @@ pub struct DiContainer {
     singletons: HashMap<TypeId, Arc<dyn Any + Send + Sync>>,
 }
 
+impl Default for DiContainer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DiContainer {
     /// Create a new empty DI container
     pub fn new() -> Self {

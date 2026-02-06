@@ -132,7 +132,7 @@ impl DeclarationHash for FunctionDeclaration {
             for tp in type_params {
                 interner.resolve(tp.name.node).hash(&mut hasher);
                 if let Some(constraint) = &tp.constraint {
-                    hash_type(&constraint, interner, &mut hasher);
+                    hash_type(constraint, interner, &mut hasher);
                 }
             }
         }

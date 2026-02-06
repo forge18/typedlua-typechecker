@@ -2707,7 +2707,7 @@ impl<'a> TypeChecker<'a> {
     pub fn compute_declaration_hashes(
         &self,
         program: &Program,
-        module_path: std::path::PathBuf,
+        _module_path: std::path::PathBuf,
         interner: &typedlua_parser::string_interner::StringInterner,
     ) -> FxHashMap<String, u64> {
         let mut hashes = FxHashMap::default();

@@ -172,7 +172,7 @@ pub fn canonicalize_union(types: Vec<Type>, span: Span) -> Type {
         return Type::new(TypeKind::Primitive(PrimitiveType::Never), span);
     }
 
-    unique_types.sort_by(|a, b| type_to_string(a).cmp(&type_to_string(b)));
+    unique_types.sort_by_key(type_to_string);
 
     let mut deduped: Vec<Type> = Vec::new();
     let mut prev: Option<String> = None;
