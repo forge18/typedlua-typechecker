@@ -278,7 +278,7 @@ impl TypeCompatibility {
         visited: &mut HashSet<(usize, usize)>,
     ) -> bool {
         // For each property in target, source must have a compatible property
-        for t_member in &target.members {
+        for t_member in target.members.iter() {
             match t_member {
                 ObjectTypeMember::Property(t_prop) => {
                     // Find corresponding property in source

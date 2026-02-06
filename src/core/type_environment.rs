@@ -6,9 +6,9 @@ use typedlua_parser::span::Span;
 
 /// A generic type alias with type parameters
 #[derive(Debug, Clone)]
-pub struct GenericTypeAlias {
-    pub type_parameters: Vec<TypeParameter>,
-    pub typ: Type,
+pub struct GenericTypeAlias<'arena> {
+    pub type_parameters: Vec<TypeParameter<'arena>>,
+    pub typ: Type<'arena>,
 }
 
 /// Cache key for utility types
@@ -27,45 +27,45 @@ struct GenericInstantiationCacheKey {
 
 /// Type environment managing type aliases and interfaces
 #[derive(Debug)]
-pub struct TypeEnvironment {
+pub struct TypeEnvironment<'arena> {
     /// Type aliases (type Foo = ...)
-    type_aliases: FxHashMap<String, Type>,
+    type_aliases: FxHashMap<String, Type<'arena>>,
     /// Generic type aliases (type Foo<T> = ...)
-    generic_type_aliases: FxHashMap<String, GenericTypeAlias>,
+    generic_type_aliases: FxHashMap<String, GenericTypeAlias<'arena>>,
     /// Interface types
-    interfaces: FxHashMap<String, Type>,
+    interfaces: FxHashMap<String, Type<'arena>>,
     /// Built-in types
-    builtins: FxHashMap<String, Type>,
+    builtins: FxHashMap<String, Type<'arena>>,
     /// Currently resolving types (for cycle detection)
     resolving: std::cell::RefCell<std::collections::HashSet<String>>,
     /// Type parameter constraints (T -> constraint type)
-    type_param_constraints: FxHashMap<String, Type>,
+    type_param_constraints: FxHashMap<String, Type<'arena>>,
     /// Class implements relationships (class name -> list of implemented interface types)
-    class_implements: FxHashMap<String, Vec<Type>>,
+    class_implements: FxHashMap<String, Vec<Type<'arena>>>,
     /// Abstract classes (class name -> is_abstract)
     abstract_classes: FxHashMap<String, bool>,
     /// Class primary constructors (class name -> constructor parameters)
-    class_constructors: FxHashMap<String, Vec<ConstructorParameter>>,
+    class_constructors: FxHashMap<String, Vec<ConstructorParameter<'arena>>>,
     /// Interface type parameter names (interface name -> ordered parameter names)
     interface_type_params: FxHashMap<String, Vec<String>>,
     /// Cached primitive types (singletons)
-    primitive_nil: Arc<Type>,
-    primitive_boolean: Arc<Type>,
-    primitive_number: Arc<Type>,
-    primitive_integer: Arc<Type>,
-    primitive_string: Arc<Type>,
-    primitive_unknown: Arc<Type>,
-    primitive_never: Arc<Type>,
-    primitive_void: Arc<Type>,
-    primitive_table: Arc<Type>,
-    primitive_coroutine: Arc<Type>,
+    primitive_nil: Arc<Type<'arena>>,
+    primitive_boolean: Arc<Type<'arena>>,
+    primitive_number: Arc<Type<'arena>>,
+    primitive_integer: Arc<Type<'arena>>,
+    primitive_string: Arc<Type<'arena>>,
+    primitive_unknown: Arc<Type<'arena>>,
+    primitive_never: Arc<Type<'arena>>,
+    primitive_void: Arc<Type<'arena>>,
+    primitive_table: Arc<Type<'arena>>,
+    primitive_coroutine: Arc<Type<'arena>>,
     /// Cache for utility type resolutions (Pick, Omit, Keyof, etc.)
-    utility_type_cache: std::cell::RefCell<FxHashMap<UtilityTypeCacheKey, Type>>,
+    utility_type_cache: std::cell::RefCell<FxHashMap<UtilityTypeCacheKey, Type<'arena>>>,
     /// Cache for generic type instantiations
-    generic_instantiation_cache: std::cell::RefCell<FxHashMap<GenericInstantiationCacheKey, Type>>,
+    generic_instantiation_cache: std::cell::RefCell<FxHashMap<GenericInstantiationCacheKey, Type<'arena>>>,
 }
 
-impl TypeEnvironment {
+impl<'arena> TypeEnvironment<'arena> {
     pub fn new() -> Self {
         let span = Span::new(0, 0, 0, 0);
 
@@ -147,7 +147,7 @@ impl TypeEnvironment {
     }
 
     /// Register a type alias
-    pub fn register_type_alias(&mut self, name: String, typ: Type) -> Result<(), String> {
+    pub fn register_type_alias(&mut self, name: String, typ: Type<'arena>) -> Result<(), String> {
         if self.type_aliases.contains_key(&name) {
             return Err(format!("Type alias '{}' already defined", name));
         }
@@ -164,8 +164,8 @@ impl TypeEnvironment {
     pub fn register_generic_type_alias(
         &mut self,
         name: String,
-        type_parameters: Vec<TypeParameter>,
-        typ: Type,
+        type_parameters: Vec<TypeParameter<'arena>>,
+        typ: Type<'arena>,
     ) -> Result<(), String> {
         if self.generic_type_aliases.contains_key(&name) {
             return Err(format!("Generic type alias '{}' already defined", name));
@@ -181,7 +181,7 @@ impl TypeEnvironment {
     }
 
     /// Register an interface
-    pub fn register_interface(&mut self, name: String, typ: Type) -> Result<(), String> {
+    pub fn register_interface(&mut self, name: String, typ: Type<'arena>) -> Result<(), String> {
         if self.interfaces.contains_key(&name) {
             return Err(format!("Interface '{}' already defined", name));
         }
@@ -200,7 +200,7 @@ impl TypeEnvironment {
     }
 
     /// Look up a type by name (checks type aliases, interfaces, and builtins)
-    pub fn lookup_type(&self, name: &str) -> Option<&Type> {
+    pub fn lookup_type(&self, name: &str) -> Option<&Type<'arena>> {
         self.type_aliases
             .get(name)
             .or_else(|| self.interfaces.get(name))
@@ -208,108 +208,108 @@ impl TypeEnvironment {
     }
 
     /// Look up a type alias
-    pub fn lookup_type_alias(&self, name: &str) -> Option<&Type> {
+    pub fn lookup_type_alias(&self, name: &str) -> Option<&Type<'arena>> {
         self.type_aliases.get(name)
     }
 
     /// Look up an interface
-    pub fn lookup_interface(&self, name: &str) -> Option<&Type> {
+    pub fn lookup_interface(&self, name: &str) -> Option<&Type<'arena>> {
         self.interfaces.get(name)
     }
 
     /// Get an interface (alias for lookup_interface)
-    pub fn get_interface(&self, name: &str) -> Option<&Type> {
+    pub fn get_interface(&self, name: &str) -> Option<&Type<'arena>> {
         self.lookup_interface(name)
     }
 
     /// Fast access to primitive type singletons
-    pub fn type_nil(&self) -> &Arc<Type> {
+    pub fn type_nil(&self) -> &Arc<Type<'arena>> {
         &self.primitive_nil
     }
 
-    pub fn type_boolean(&self) -> &Arc<Type> {
+    pub fn type_boolean(&self) -> &Arc<Type<'arena>> {
         &self.primitive_boolean
     }
 
-    pub fn type_number(&self) -> &Arc<Type> {
+    pub fn type_number(&self) -> &Arc<Type<'arena>> {
         &self.primitive_number
     }
 
-    pub fn type_integer(&self) -> &Arc<Type> {
+    pub fn type_integer(&self) -> &Arc<Type<'arena>> {
         &self.primitive_integer
     }
 
-    pub fn type_string(&self) -> &Arc<Type> {
+    pub fn type_string(&self) -> &Arc<Type<'arena>> {
         &self.primitive_string
     }
 
-    pub fn type_unknown(&self) -> &Arc<Type> {
+    pub fn type_unknown(&self) -> &Arc<Type<'arena>> {
         &self.primitive_unknown
     }
 
-    pub fn type_never(&self) -> &Arc<Type> {
+    pub fn type_never(&self) -> &Arc<Type<'arena>> {
         &self.primitive_never
     }
 
-    pub fn type_void(&self) -> &Arc<Type> {
+    pub fn type_void(&self) -> &Arc<Type<'arena>> {
         &self.primitive_void
     }
 
-    pub fn type_table(&self) -> &Arc<Type> {
+    pub fn type_table(&self) -> &Arc<Type<'arena>> {
         &self.primitive_table
     }
 
-    pub fn type_coroutine(&self) -> &Arc<Type> {
+    pub fn type_coroutine(&self) -> &Arc<Type<'arena>> {
         &self.primitive_coroutine
     }
 
     /// Create a primitive type using cached instance (avoids allocation for primitives)
-    pub fn new_primitive_type(&self, prim: PrimitiveType, span: Span) -> Type {
+    pub fn new_primitive_type(&self, prim: PrimitiveType, span: Span) -> Type<'arena> {
         Type::new(TypeKind::Primitive(prim), span)
     }
 
     /// Get number type (clones Arc for backward compatibility)
-    pub fn get_number_type(&self, _span: Span) -> Type {
+    pub fn get_number_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_number).clone()
     }
 
     /// Get string type (clones Arc for backward compatibility)
-    pub fn get_string_type(&self, _span: Span) -> Type {
+    pub fn get_string_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_string).clone()
     }
 
     /// Get boolean type (clones Arc for backward compatibility)
-    pub fn get_boolean_type(&self, _span: Span) -> Type {
+    pub fn get_boolean_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_boolean).clone()
     }
 
     /// Get unknown type (clones Arc for backward compatibility)
-    pub fn get_unknown_type(&self, _span: Span) -> Type {
+    pub fn get_unknown_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_unknown).clone()
     }
 
     /// Get void type (clones Arc for backward compatibility)
-    pub fn get_void_type(&self, _span: Span) -> Type {
+    pub fn get_void_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_void).clone()
     }
 
     /// Get nil type (clones Arc for backward compatibility)
-    pub fn get_nil_type(&self, _span: Span) -> Type {
+    pub fn get_nil_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_nil).clone()
     }
 
     /// Get integer type (clones Arc for backward compatibility)
-    pub fn get_integer_type(&self, _span: Span) -> Type {
+    pub fn get_integer_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_integer).clone()
     }
 
     /// Get never type (clones Arc for backward compatibility)
-    pub fn get_never_type(&self, _span: Span) -> Type {
+    pub fn get_never_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_never).clone()
     }
 
     /// Get table type (clones Arc for backward compatibility)
-    pub fn get_table_type(&self, _span: Span) -> Type {
+    pub fn get_table_type(&self, _span: Span) -> Type<'arena> {
         (*self.primitive_table).clone()
     }
 
@@ -319,7 +319,7 @@ impl TypeEnvironment {
     }
 
     /// Register a type parameter constraint (e.g., T extends/implements Identifiable)
-    pub fn register_type_param_constraint(&mut self, name: String, constraint: Type) {
+    pub fn register_type_param_constraint(&mut self, name: String, constraint: Type<'arena>) {
         self.type_param_constraints.insert(name, constraint);
     }
 
@@ -329,17 +329,17 @@ impl TypeEnvironment {
     }
 
     /// Get the constraint for a type parameter
-    pub fn get_type_param_constraint(&self, name: &str) -> Option<&Type> {
+    pub fn get_type_param_constraint(&self, name: &str) -> Option<&Type<'arena>> {
         self.type_param_constraints.get(name)
     }
 
     /// Register that a class implements one or more interfaces
-    pub fn register_class_implements(&mut self, class_name: String, interfaces: Vec<Type>) {
+    pub fn register_class_implements(&mut self, class_name: String, interfaces: Vec<Type<'arena>>) {
         self.class_implements.insert(class_name, interfaces);
     }
 
     /// Get the interfaces a class implements
-    pub fn get_class_implements(&self, class_name: &str) -> Option<&Vec<Type>> {
+    pub fn get_class_implements(&self, class_name: &str) -> Option<&Vec<Type<'arena>>> {
         self.class_implements.get(class_name)
     }
 
@@ -360,18 +360,18 @@ impl TypeEnvironment {
     pub fn register_class_constructor(
         &mut self,
         class_name: String,
-        params: Vec<ConstructorParameter>,
+        params: Vec<ConstructorParameter<'arena>>,
     ) {
         self.class_constructors.insert(class_name, params);
     }
 
     /// Get a class's primary constructor parameters
-    pub fn get_class_constructor(&self, class_name: &str) -> Option<&Vec<ConstructorParameter>> {
+    pub fn get_class_constructor(&self, class_name: &str) -> Option<&Vec<ConstructorParameter<'arena>>> {
         self.class_constructors.get(class_name)
     }
 
     /// Resolve a type reference, detecting cycles
-    pub fn resolve_type_reference(&self, name: &str) -> Result<Option<Type>, String> {
+    pub fn resolve_type_reference(&self, name: &str) -> Result<Option<Type<'arena>>, String> {
         // Check if we're already resolving this type (cycle detection)
         if self.resolving.borrow().contains(name) {
             return Err(format!("Recursive type alias '{}' detected", name));
@@ -390,7 +390,7 @@ impl TypeEnvironment {
     }
 
     /// Get a generic type alias
-    pub fn get_generic_type_alias(&self, name: &str) -> Option<&GenericTypeAlias> {
+    pub fn get_generic_type_alias(&self, name: &str) -> Option<&GenericTypeAlias<'arena>> {
         self.generic_type_aliases.get(name)
     }
 
@@ -398,9 +398,9 @@ impl TypeEnvironment {
     pub fn instantiate_generic_type(
         &self,
         name: &str,
-        type_args: &[Type],
+        type_args: &[Type<'arena>],
         _span: Span,
-    ) -> Result<Type, String> {
+    ) -> Result<Type<'arena>, String> {
         let cache_key = GenericInstantiationCacheKey {
             name: name.to_string(),
             type_args_hash: Self::compute_type_args_fingerprint(type_args),
@@ -445,7 +445,7 @@ impl TypeEnvironment {
         )
     }
 
-    fn compute_type_args_fingerprint(type_args: &[Type]) -> u64 {
+    fn compute_type_args_fingerprint(type_args: &[Type<'arena>]) -> u64 {
         let mut hash = 0u64;
         for typ in type_args {
             hash = hash.wrapping_mul(31);
@@ -454,7 +454,7 @@ impl TypeEnvironment {
         hash
     }
 
-    fn type_fingerprint(typ: &Type) -> u64 {
+    fn type_fingerprint(typ: &Type<'arena>) -> u64 {
         let kind_hash = match &typ.kind {
             TypeKind::Primitive(p) => match p {
                 PrimitiveType::Nil => 1,
@@ -476,14 +476,14 @@ impl TypeEnvironment {
             TypeKind::Function(_) => 300,
             TypeKind::Union(types) => {
                 let mut h = 400u64;
-                for t in types {
+                for t in types.iter() {
                     h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
                 }
                 h
             }
             TypeKind::Intersection(types) => {
                 let mut h = 500u64;
-                for t in types {
+                for t in types.iter() {
                     h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
                 }
                 h
@@ -496,7 +496,7 @@ impl TypeEnvironment {
             TypeKind::TypeQuery(_) => 1100,
             TypeKind::Tuple(types) => {
                 let mut h = 1200u64;
-                for t in types {
+                for t in types.iter() {
                     h = h.wrapping_mul(31).wrapping_add(Self::type_fingerprint(t));
                 }
                 h
@@ -525,11 +525,11 @@ impl TypeEnvironment {
     pub fn resolve_utility_type(
         &self,
         name: &str,
-        type_args: &[Type],
+        type_args: &[Type<'arena>],
         span: Span,
         interner: &typedlua_parser::string_interner::StringInterner,
         common_ids: &typedlua_parser::string_interner::CommonIdentifiers,
-    ) -> Result<Type, String> {
+    ) -> Result<Type<'arena>, String> {
         let cache_key = UtilityTypeCacheKey {
             name: name.to_string(),
             type_args_hash: Self::compute_type_args_fingerprint(type_args),
@@ -548,7 +548,7 @@ impl TypeEnvironment {
     }
 }
 
-impl Default for TypeEnvironment {
+impl<'arena> Default for TypeEnvironment<'arena> {
     fn default() -> Self {
         Self::new()
     }

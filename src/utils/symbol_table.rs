@@ -18,18 +18,18 @@ pub enum SymbolKind {
 }
 
 /// A symbol in the symbol table
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Symbol {
+#[derive(Debug, Clone)]
+pub struct Symbol<'arena> {
     pub name: String,
     pub kind: SymbolKind,
-    pub typ: Type,
+    pub typ: Type<'arena>,
     pub span: Span,
     pub is_exported: bool,
     pub references: Vec<Span>,
 }
 
-impl Symbol {
-    pub fn new(name: String, kind: SymbolKind, typ: Type, span: Span) -> Self {
+impl<'arena> Symbol<'arena> {
+    pub fn new(name: String, kind: SymbolKind, typ: Type<'arena>, span: Span) -> Self {
         Self {
             name,
             kind,
@@ -48,11 +48,11 @@ impl Symbol {
 
 /// A scope containing symbols
 #[derive(Debug, Clone)]
-pub struct Scope {
-    symbols: FxHashMap<String, Symbol>,
+pub struct Scope<'arena> {
+    symbols: FxHashMap<String, Symbol<'arena>>,
 }
 
-impl Scope {
+impl<'arena> Scope<'arena> {
     pub fn new() -> Self {
         Self {
             symbols: FxHashMap::with_capacity_and_hasher(32, Default::default()),
@@ -60,7 +60,7 @@ impl Scope {
     }
 
     /// Declare a symbol in this scope
-    pub fn declare(&mut self, symbol: Symbol) -> Result<(), String> {
+    pub fn declare(&mut self, symbol: Symbol<'arena>) -> Result<(), String> {
         if self.symbols.contains_key(&symbol.name) {
             return Err(format!(
                 "Symbol '{}' already declared in this scope",
@@ -72,22 +72,22 @@ impl Scope {
     }
 
     /// Look up a symbol in this scope only
-    pub fn lookup(&self, name: &str) -> Option<&Symbol> {
+    pub fn lookup(&self, name: &str) -> Option<&Symbol<'arena>> {
         self.symbols.get(name)
     }
 
     /// Look up a symbol only in this scope (not parent scopes)
-    pub fn lookup_local(&self, name: &str) -> Option<&Symbol> {
+    pub fn lookup_local(&self, name: &str) -> Option<&Symbol<'arena>> {
         self.symbols.get(name)
     }
 
     /// Get all symbols in this scope
-    pub fn symbols(&self) -> impl Iterator<Item = &Symbol> {
+    pub fn symbols(&self) -> impl Iterator<Item = &Symbol<'arena>> {
         self.symbols.values()
     }
 }
 
-impl Default for Scope {
+impl<'arena> Default for Scope<'arena> {
     fn default() -> Self {
         Self::new()
     }
@@ -95,12 +95,12 @@ impl Default for Scope {
 
 /// Symbol table managing scopes
 #[derive(Debug)]
-pub struct SymbolTable {
-    current_scope: Scope,
-    scope_stack: Vec<Scope>,
+pub struct SymbolTable<'arena> {
+    current_scope: Scope<'arena>,
+    scope_stack: Vec<Scope<'arena>>,
 }
 
-impl SymbolTable {
+impl<'arena> SymbolTable<'arena> {
     pub fn new() -> Self {
         Self {
             current_scope: Scope::new(),
@@ -122,12 +122,12 @@ impl SymbolTable {
     }
 
     /// Declare a symbol in the current scope
-    pub fn declare(&mut self, symbol: Symbol) -> Result<(), String> {
+    pub fn declare(&mut self, symbol: Symbol<'arena>) -> Result<(), String> {
         self.current_scope.declare(symbol)
     }
 
     /// Look up a symbol in current scope, then walk the scope stack (most recent first)
-    pub fn lookup(&self, name: &str) -> Option<&Symbol> {
+    pub fn lookup(&self, name: &str) -> Option<&Symbol<'arena>> {
         if let Some(symbol) = self.current_scope.symbols.get(name) {
             return Some(symbol);
         }
@@ -140,7 +140,7 @@ impl SymbolTable {
     }
 
     /// Look up a symbol only in the current scope
-    pub fn lookup_local(&self, name: &str) -> Option<&Symbol> {
+    pub fn lookup_local(&self, name: &str) -> Option<&Symbol<'arena>> {
         self.current_scope.lookup_local(name)
     }
 
@@ -165,12 +165,12 @@ impl SymbolTable {
     }
 
     /// Get the current scope
-    pub fn current_scope(&self) -> &Scope {
+    pub fn current_scope(&self) -> &Scope<'arena> {
         &self.current_scope
     }
 
     /// Get all symbols visible from the current scope (current + all parent scopes on stack)
-    pub fn all_visible_symbols(&self) -> FxHashMap<String, &Symbol> {
+    pub fn all_visible_symbols(&self) -> FxHashMap<String, &Symbol<'arena>> {
         let mut result = FxHashMap::default();
 
         // Add from oldest scope to newest so newer scopes shadow older ones
@@ -189,7 +189,7 @@ impl SymbolTable {
     }
 }
 
-impl Default for SymbolTable {
+impl<'arena> Default for SymbolTable<'arena> {
     fn default() -> Self {
         Self::new()
     }
@@ -200,7 +200,7 @@ impl Default for SymbolTable {
 pub struct SerializableSymbol {
     pub name: String,
     pub kind: SymbolKind,
-    pub typ: Type,
+    pub typ: Type<'static>,
     pub span: Span,
     pub is_exported: bool,
     pub references: Vec<Span>,
@@ -213,7 +213,7 @@ pub struct SerializableSymbolTable {
     pub symbols: Vec<SerializableSymbol>,
 }
 
-impl SymbolTable {
+impl<'arena> SymbolTable<'arena> {
     /// Convert to serializable format by flattening scope hierarchy
     pub fn to_serializable(&self) -> SerializableSymbolTable {
         let mut symbols = Vec::new();
@@ -311,7 +311,7 @@ mod tests {
     use super::*;
     use typedlua_parser::ast::types::{PrimitiveType, TypeKind};
 
-    fn make_test_type() -> Type {
+    fn make_test_type() -> Type<'static> {
         Type::new(
             TypeKind::Primitive(PrimitiveType::Number),
             Span::new(0, 0, 0, 0),

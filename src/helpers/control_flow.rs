@@ -22,7 +22,7 @@ use typedlua_parser::string_interner::StringInterner;
 ///
 /// Returns `true` if the block always returns on all code paths, `false` otherwise.
 pub fn block_always_returns(block: &Block, interner: &StringInterner) -> bool {
-    for stmt in &block.statements {
+    for stmt in block.statements.iter() {
         if statement_always_returns(stmt, interner) {
             return true;
         }

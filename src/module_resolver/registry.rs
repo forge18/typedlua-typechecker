@@ -4,7 +4,6 @@ use indexmap::IndexMap;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, RwLock};
-use typedlua_parser::ast::Program;
 
 /// Status of a module in the compilation pipeline
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,11 +16,13 @@ pub enum ModuleStatus {
     TypeChecked,
 }
 
-/// A compiled module with its AST, exports, and symbol table
+/// A compiled module with its exports and symbol table
+///
+/// Note: AST is not stored here - it flows through CheckedModule in the CLI.
+/// The registry only stores what's needed for cross-module type resolution.
 #[derive(Debug, Clone)]
 pub struct CompiledModule {
     pub id: ModuleId,
-    pub ast: Arc<Program>,
     pub exports: ModuleExports,
     pub symbol_table: Arc<SymbolTable>,
     pub status: ModuleStatus,
@@ -109,7 +110,6 @@ impl ModuleRegistry {
     ) {
         let module = CompiledModule {
             id: id.clone(),
-            ast: Arc::new(Program::new(vec![], Default::default())),
             exports,
             symbol_table,
             status: ModuleStatus::TypeChecked,
@@ -118,10 +118,9 @@ impl ModuleRegistry {
     }
 
     /// Register a parsed module (before type checking)
-    pub fn register_parsed(&self, id: ModuleId, ast: Arc<Program>, symbol_table: Arc<SymbolTable>) {
+    pub fn register_parsed(&self, id: ModuleId, symbol_table: Arc<SymbolTable>) {
         let module = CompiledModule {
             id: id.clone(),
-            ast,
             exports: ModuleExports::new(),
             symbol_table,
             status: ModuleStatus::Parsed,
@@ -272,13 +271,9 @@ mod tests {
     fn test_registry_register_and_get() {
         let registry = ModuleRegistry::new();
         let id = ModuleId::new(PathBuf::from("test.tl"));
-        let ast = Arc::new(Program {
-            statements: vec![],
-            span: Span::new(0, 0, 0, 0),
-        });
         let symbol_table = Arc::new(SymbolTable::new());
 
-        registry.register_parsed(id.clone(), ast.clone(), symbol_table);
+        registry.register_parsed(id.clone(), symbol_table);
 
         let module = registry.get_module(&id).unwrap();
         assert_eq!(module.status, ModuleStatus::Parsed);
@@ -288,14 +283,10 @@ mod tests {
     fn test_registry_exports_workflow() {
         let registry = ModuleRegistry::new();
         let id = ModuleId::new(PathBuf::from("test.tl"));
-        let ast = Arc::new(Program {
-            statements: vec![],
-            span: Span::new(0, 0, 0, 0),
-        });
         let symbol_table = Arc::new(SymbolTable::new());
 
         // Register as parsed
-        registry.register_parsed(id.clone(), ast, symbol_table);
+        registry.register_parsed(id.clone(), symbol_table);
         assert_eq!(registry.get_status(&id).unwrap(), ModuleStatus::Parsed);
 
         // Add exports

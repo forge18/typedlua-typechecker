@@ -6,9 +6,9 @@ use std::sync::Arc;
 use typedlua_parser::string_interner::CommonIdentifiers;
 use typedlua_parser::string_interner::StringInterner;
 
-pub trait TypeCheckContext {
-    fn symbol_table(&mut self) -> &mut SymbolTable;
-    fn type_env(&mut self) -> &mut TypeEnvironment;
+pub trait TypeCheckContext<'arena> {
+    fn symbol_table(&mut self) -> &mut SymbolTable<'arena>;
+    fn type_env(&mut self) -> &mut TypeEnvironment<'arena>;
     fn narrowing(&mut self) -> &mut TypeNarrower;
     fn access_control(&mut self) -> &mut AccessControl;
     fn interner(&self) -> &StringInterner;
@@ -16,9 +16,9 @@ pub trait TypeCheckContext {
     fn diagnostic_handler(&self) -> &Arc<dyn DiagnosticHandler>;
 }
 
-pub struct TypeCheckContextImpl {
-    pub symbol_table: SymbolTable,
-    pub type_env: TypeEnvironment,
+pub struct TypeCheckContextImpl<'arena> {
+    pub symbol_table: SymbolTable<'arena>,
+    pub type_env: TypeEnvironment<'arena>,
     pub narrowing: TypeNarrower,
     pub access_control: AccessControl,
     pub interner: Arc<StringInterner>,
@@ -26,7 +26,7 @@ pub struct TypeCheckContextImpl {
     pub diagnostic_handler: Arc<dyn DiagnosticHandler>,
 }
 
-impl TypeCheckContextImpl {
+impl<'arena> TypeCheckContextImpl<'arena> {
     pub fn new(
         interner: Arc<StringInterner>,
         common: Arc<CommonIdentifiers>,
@@ -44,12 +44,12 @@ impl TypeCheckContextImpl {
     }
 }
 
-impl TypeCheckContext for TypeCheckContextImpl {
-    fn symbol_table(&mut self) -> &mut SymbolTable {
+impl<'arena> TypeCheckContext<'arena> for TypeCheckContextImpl<'arena> {
+    fn symbol_table(&mut self) -> &mut SymbolTable<'arena> {
         &mut self.symbol_table
     }
 
-    fn type_env(&mut self) -> &mut TypeEnvironment {
+    fn type_env(&mut self) -> &mut TypeEnvironment<'arena> {
         &mut self.type_env
     }
 
