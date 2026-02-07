@@ -146,50 +146,176 @@ pub fn declare_pattern<'arena>(
             Ok(())
         }
         Pattern::Array(array_pattern) => {
-            // Extract element type from array type
-            if let TypeKind::Array(elem_type) = &typ.kind {
-                for elem in array_pattern.elements.iter() {
-                    match elem {
-                        ArrayPatternElement::Pattern(pat) => {
-                            declare_pattern(
-                                pat,
-                                (*elem_type).clone(),
-                                kind,
-                                span,
-                                symbol_table,
-                                interner,
-                                arena,
-                            )?;
-                        }
-                        ArrayPatternElement::Rest(ident) => {
-                            // Rest gets array type
-                            let array_type = Type::new(TypeKind::Array(elem_type), span);
-                            let symbol = Symbol::new(
-                                interner.resolve(ident.node).to_string(),
-                                kind,
-                                array_type,
-                                span,
-                            );
-                            symbol_table
-                                .declare(symbol)
-                                .map_err(|e| TypeCheckError::new(e, span))?;
-                        }
-                        ArrayPatternElement::Hole => {
-                            // Holes don't declare symbols
+            // Extract element type from array or tuple type
+            match &typ.kind {
+                TypeKind::Array(elem_type) => {
+                    for elem in array_pattern.elements.iter() {
+                        match elem {
+                            ArrayPatternElement::Pattern(pat, _) => {
+                                declare_pattern(
+                                    pat,
+                                    (*elem_type).clone(),
+                                    kind,
+                                    span,
+                                    symbol_table,
+                                    interner,
+                                    arena,
+                                )?;
+                            }
+                            ArrayPatternElement::Rest(ident) => {
+                                // Rest gets array type
+                                let array_type = Type::new(TypeKind::Array(elem_type), span);
+                                let symbol = Symbol::new(
+                                    interner.resolve(ident.node).to_string(),
+                                    kind,
+                                    array_type,
+                                    span,
+                                );
+                                symbol_table
+                                    .declare(symbol)
+                                    .map_err(|e| TypeCheckError::new(e, span))?;
+                            }
+                            ArrayPatternElement::Hole => {
+                                // Holes don't declare symbols
+                            }
                         }
                     }
                 }
-            } else {
-                return Err(TypeCheckError::new(
-                    "Cannot destructure non-array type",
-                    span,
-                ));
+                TypeKind::Tuple(elem_types) => {
+                    // Tuple types: each element has a specific type
+                    let mut type_index = 0;
+                    for elem in array_pattern.elements.iter() {
+                        match elem {
+                            ArrayPatternElement::Pattern(pat, _) => {
+                                let elem_type = if type_index < elem_types.len() {
+                                    elem_types[type_index].clone()
+                                } else {
+                                    Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span)
+                                };
+                                declare_pattern(
+                                    pat,
+                                    elem_type,
+                                    kind,
+                                    span,
+                                    symbol_table,
+                                    interner,
+                                    arena,
+                                )?;
+                                type_index += 1;
+                            }
+                            ArrayPatternElement::Rest(ident) => {
+                                // Rest gets array of remaining tuple element types
+                                let remaining = &elem_types[type_index..];
+                                let rest_type = if remaining.is_empty() {
+                                    Type::new(TypeKind::Array(arena.alloc(Type::new(
+                                        TypeKind::Primitive(PrimitiveType::Unknown),
+                                        span,
+                                    ))), span)
+                                } else if remaining.len() == 1 {
+                                    Type::new(TypeKind::Array(arena.alloc(remaining[0].clone())), span)
+                                } else {
+                                    let union_types = arena.alloc_slice_clone(remaining);
+                                    Type::new(TypeKind::Array(arena.alloc(Type::new(
+                                        TypeKind::Union(union_types),
+                                        span,
+                                    ))), span)
+                                };
+                                let symbol = Symbol::new(
+                                    interner.resolve(ident.node).to_string(),
+                                    kind,
+                                    rest_type,
+                                    span,
+                                );
+                                symbol_table
+                                    .declare(symbol)
+                                    .map_err(|e| TypeCheckError::new(e, span))?;
+                            }
+                            ArrayPatternElement::Hole => {
+                                type_index += 1;
+                            }
+                        }
+                    }
+                }
+                TypeKind::Union(variants) => {
+                    // For unions containing array types, extract the element type
+                    // e.g., Union(Array(T1), Array(T2)) -> elements get Union(T1, T2)
+                    let mut array_elem_types = Vec::new();
+                    for variant in variants.iter() {
+                        match &variant.kind {
+                            TypeKind::Array(elem) => {
+                                array_elem_types.push((*elem).clone());
+                            }
+                            TypeKind::Tuple(_) => {
+                                // If any variant is a tuple, delegate to tuple handling
+                                return declare_pattern(
+                                    pattern,
+                                    variant.clone(),
+                                    kind,
+                                    span,
+                                    symbol_table,
+                                    interner,
+                                    arena,
+                                );
+                            }
+                            _ => {}
+                        }
+                    }
+                    if array_elem_types.is_empty() {
+                        return Err(TypeCheckError::new(
+                            "Cannot destructure non-array type",
+                            span,
+                        ));
+                    }
+                    // Merge element types into a single union or use directly
+                    let merged_elem = if array_elem_types.len() == 1 {
+                        array_elem_types.into_iter().next().unwrap()
+                    } else {
+                        let types = arena.alloc_slice_fill_iter(array_elem_types);
+                        Type::new(TypeKind::Union(types), span)
+                    };
+                    let array_type = Type::new(
+                        TypeKind::Array(arena.alloc(merged_elem)),
+                        span,
+                    );
+                    return declare_pattern(
+                        pattern,
+                        array_type,
+                        kind,
+                        span,
+                        symbol_table,
+                        interner,
+                        arena,
+                    );
+                }
+                _ => {
+                    return Err(TypeCheckError::new(
+                        "Cannot destructure non-array type",
+                        span,
+                    ));
+                }
             }
             Ok(())
         }
         Pattern::Object(obj_pattern) => {
-            // Extract properties from object type
+            // Handle Union types by extracting the first Object variant
+            let typ = if let TypeKind::Union(variants) = &typ.kind {
+                variants
+                    .iter()
+                    .find(|v| matches!(v.kind, TypeKind::Object(_)))
+                    .cloned()
+                    .unwrap_or(typ)
+            } else {
+                typ
+            };
+
             if let TypeKind::Object(obj_type) = &typ.kind {
+                // Collect the set of destructured property names for rest computation
+                let destructured_keys: Vec<_> = obj_pattern
+                    .properties
+                    .iter()
+                    .map(|p| p.key.node)
+                    .collect();
+
                 for prop_pattern in obj_pattern.properties.iter() {
                     // Find matching property in type
                     let prop_type = obj_type.members.iter().find_map(|member| {
@@ -207,7 +333,7 @@ pub fn declare_pattern<'arena>(
                             return Err(TypeCheckError::new(
                                 format!(
                                     "Property '{}' does not exist on type",
-                                    prop_pattern.key.node
+                                    interner.resolve(prop_pattern.key.node)
                                 ),
                                 span,
                             ));
@@ -236,6 +362,41 @@ pub fn declare_pattern<'arena>(
                             .declare(symbol)
                             .map_err(|e| TypeCheckError::new(e, span))?;
                     }
+                }
+
+                // Handle rest pattern: { a, ...rest }
+                if let Some(rest_ident) = &obj_pattern.rest {
+                    // Build object type from remaining properties
+                    let remaining_members: Vec<_> = obj_type
+                        .members
+                        .iter()
+                        .filter(|member| {
+                            if let ObjectTypeMember::Property(prop) = member {
+                                !destructured_keys.contains(&prop.name.node)
+                            } else {
+                                true
+                            }
+                        })
+                        .cloned()
+                        .collect();
+
+                    let rest_type = Type::new(
+                        TypeKind::Object(ObjectType {
+                            members: arena.alloc_slice_fill_iter(remaining_members),
+                            span,
+                        }),
+                        span,
+                    );
+
+                    let symbol = Symbol::new(
+                        interner.resolve(rest_ident.node).to_string(),
+                        kind,
+                        rest_type,
+                        span,
+                    );
+                    symbol_table
+                        .declare(symbol)
+                        .map_err(|e| TypeCheckError::new(e, span))?;
                 }
             } else {
                 return Err(TypeCheckError::new(
