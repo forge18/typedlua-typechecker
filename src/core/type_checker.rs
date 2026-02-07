@@ -687,23 +687,43 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             ForStatement::Generic(generic) => {
                 self.symbol_table.enter_scope();
 
-                // Declare loop variables with unknown type
+                // Infer iterator element type for pattern destructuring
+                let iter_elem_type = if let Some(first_iter) = generic.iterators.first() {
+                    let iter_type = self.infer_expression_type(first_iter)?;
+                    match &iter_type.kind {
+                        TypeKind::Array(elem) => (*elem).clone(),
+                        _ => self.type_env.get_unknown_type(generic.span),
+                    }
+                } else {
+                    self.type_env.get_unknown_type(generic.span)
+                };
 
-                let unknown_type = self.type_env.get_unknown_type(generic.span);
-                for var in generic.variables.iter() {
-                    let symbol = Symbol::new(
-                        self.interner.resolve(var.node).to_string(),
+                if let Some(pattern) = &generic.pattern {
+                    // Destructuring for loop: for [a, b] in items do
+                    self.declare_pattern(
+                        pattern,
+                        iter_elem_type,
                         SymbolKind::Variable,
-                        unknown_type.clone(),
                         generic.span,
-                    );
-                    self.symbol_table
-                        .declare(symbol)
-                        .map_err(|e| TypeCheckError::new(e, generic.span))?;
+                    )?;
+                } else {
+                    // Standard for loop: for k, v in iterator do
+                    let unknown_type = self.type_env.get_unknown_type(generic.span);
+                    for var in generic.variables.iter() {
+                        let symbol = Symbol::new(
+                            self.interner.resolve(var.node).to_string(),
+                            SymbolKind::Variable,
+                            unknown_type.clone(),
+                            generic.span,
+                        );
+                        self.symbol_table
+                            .declare(symbol)
+                            .map_err(|e| TypeCheckError::new(e, generic.span))?;
+                    }
                 }
 
-                // Check iterators
-                for iter in generic.iterators.iter() {
+                // Check remaining iterators
+                for iter in generic.iterators.iter().skip(1) {
                     self.infer_expression_type(iter)?;
                 }
 

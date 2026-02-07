@@ -317,26 +317,32 @@ pub fn declare_pattern<'arena>(
                     .collect();
 
                 for prop_pattern in obj_pattern.properties.iter() {
-                    // Find matching property in type
-                    let prop_type = obj_type.members.iter().find_map(|member| {
-                        if let ObjectTypeMember::Property(prop) = member {
-                            if prop.name.node == prop_pattern.key.node {
-                                return Some(prop.type_annotation.clone());
+                    // For computed properties, we can't statically resolve the key,
+                    // so use Unknown type for the value
+                    let prop_type = if prop_pattern.computed_key.is_some() {
+                        Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span)
+                    } else {
+                        // Find matching property in type
+                        let found = obj_type.members.iter().find_map(|member| {
+                            if let ObjectTypeMember::Property(prop) = member {
+                                if prop.name.node == prop_pattern.key.node {
+                                    return Some(prop.type_annotation.clone());
+                                }
                             }
-                        }
-                        None
-                    });
+                            None
+                        });
 
-                    let prop_type = match prop_type {
-                        Some(t) => t,
-                        None => {
-                            return Err(TypeCheckError::new(
-                                format!(
-                                    "Property '{}' does not exist on type",
-                                    interner.resolve(prop_pattern.key.node)
-                                ),
-                                span,
-                            ));
+                        match found {
+                            Some(t) => t,
+                            None => {
+                                return Err(TypeCheckError::new(
+                                    format!(
+                                        "Property '{}' does not exist on type",
+                                        interner.resolve(prop_pattern.key.node)
+                                    ),
+                                    span,
+                                ));
+                            }
                         }
                     };
 
