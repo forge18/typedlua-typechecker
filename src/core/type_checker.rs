@@ -58,6 +58,8 @@ pub struct TypeChecker<'a, 'arena> {
     arena: &'arena bumpalo::Bump,
     /// Type relation cache for subtype checking
     type_relation_cache: TypeRelationCache,
+    /// Cycle detection for recursive type alias expansion
+    resolving_types: std::cell::RefCell<std::collections::HashSet<String>>,
 }
 
 impl<'a, 'arena> TypeChecker<'a, 'arena> {
@@ -99,6 +101,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             common,
             arena,
             type_relation_cache: TypeRelationCache::new(),
+            resolving_types: std::cell::RefCell::new(std::collections::HashSet::new()),
         }
     }
 
@@ -151,6 +154,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             common,
             arena,
             type_relation_cache: TypeRelationCache::new(),
+            resolving_types: std::cell::RefCell::new(std::collections::HashSet::new()),
         }
     }
 
@@ -1145,8 +1149,30 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     #[instrument(skip(self, type_ref), fields(type_name))]
     fn resolve_type_reference(&self, type_ref: &TypeReference<'arena>) -> Result<Type<'arena>, TypeCheckError> {
         let name = self.interner.resolve(type_ref.name.node);
+        let name_owned = name.to_string();
         span!(Level::DEBUG, "resolve_type_reference", type_name = %name);
 
+        let span = type_ref.span;
+
+        // Cycle detection: if we're already resolving this type, return it as-is
+        // to prevent infinite recursion on recursive type aliases like `type List<T> = T | List<T>[]`
+        if self.resolving_types.borrow().contains(&name_owned) {
+            return Ok(Type::new(TypeKind::Reference(type_ref.clone()), span));
+        }
+
+        // Mark as resolving
+        self.resolving_types.borrow_mut().insert(name_owned.clone());
+
+        let result = self.resolve_type_reference_inner(type_ref);
+
+        // Unmark
+        self.resolving_types.borrow_mut().remove(&name_owned);
+
+        result
+    }
+
+    fn resolve_type_reference_inner(&self, type_ref: &TypeReference<'arena>) -> Result<Type<'arena>, TypeCheckError> {
+        let name = self.interner.resolve(type_ref.name.node);
         let span = type_ref.span;
 
         // Check if it's a utility type
@@ -2335,6 +2361,13 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     fn deep_resolve_type(&self, typ: &Type<'arena>) -> Type<'arena> {
         match &typ.kind {
             TypeKind::Reference(type_ref) => {
+                let ref_name = self.interner.resolve(type_ref.name.node).to_string();
+
+                // Cycle detection: if we're already resolving this type, return as-is
+                if self.resolving_types.borrow().contains(&ref_name) {
+                    return typ.clone();
+                }
+
                 match self.resolve_type_reference(type_ref) {
                     Ok(resolved) => {
                         // Avoid infinite recursion if resolution returns same reference
@@ -2342,7 +2375,11 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                         {
                             resolved
                         } else {
-                            self.deep_resolve_type(&resolved)
+                            // Mark as resolving before recursing into the resolved type
+                            self.resolving_types.borrow_mut().insert(ref_name.clone());
+                            let result = self.deep_resolve_type(&resolved);
+                            self.resolving_types.borrow_mut().remove(&ref_name);
+                            result
                         }
                     }
                     Err(_) => typ.clone(),
