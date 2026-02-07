@@ -566,9 +566,11 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                     ArrowBody::Expression(expr) => {
                         self.infer_expression(expr)?
                     }
-                    ArrowBody::Block(_block) => {
-                        // Block bodies not fully supported yet
-                        Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span)
+                    ArrowBody::Block(block) => {
+                        match self.infer_block_return_type(block)? {
+                            Some(return_type) => return_type,
+                            None => Type::new(TypeKind::Primitive(PrimitiveType::Void), span),
+                        }
                     }
                 };
 
