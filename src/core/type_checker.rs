@@ -1269,15 +1269,8 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             class_decl
                 .decorators
                 .iter()
-                .any(|decorator| match &decorator.expression {
-                    typedlua_parser::ast::statement::DecoratorExpression::Identifier(name) => {
-                        self.interner.resolve(name.node) == "readonly"
-                    }
-                    typedlua_parser::ast::statement::DecoratorExpression::Call {
-                        callee: box typedlua_parser::ast::statement::DecoratorExpression::Identifier(name),
-                        ..
-                    } => self.interner.resolve(name.node) == "readonly",
-                    _ => false,
+                .any(|decorator| {
+                    self.decorator_has_name(&decorator.expression, "readonly")
                 });
 
         if has_readonly {
