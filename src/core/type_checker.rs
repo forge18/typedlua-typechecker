@@ -1265,13 +1265,10 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         self.check_decorators(class_decl.decorators)?;
 
         // Check for @readonly decorator and track it
-        let has_readonly =
-            class_decl
-                .decorators
-                .iter()
-                .any(|decorator| {
-                    self.decorator_has_name(&decorator.expression, "readonly")
-                });
+        let has_readonly = class_decl
+            .decorators
+            .iter()
+            .any(|decorator| self.decorator_has_name(&decorator.expression, "readonly"));
 
         if has_readonly {
             self.access_control.mark_class_readonly(&class_name, true);
@@ -1635,6 +1632,22 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             &self.access_control,
             self.interner,
         )
+    }
+
+    /// Check if a decorator expression resolves to a given name
+    fn decorator_has_name(
+        &self,
+        expr: &typedlua_parser::ast::statement::DecoratorExpression<'arena>,
+        target: &str,
+    ) -> bool {
+        use typedlua_parser::ast::statement::DecoratorExpression;
+        match expr {
+            DecoratorExpression::Identifier(name) => self.interner.resolve(name.node) == target,
+            DecoratorExpression::Call { callee, .. } => {
+                matches!(&**callee, DecoratorExpression::Identifier(name) if self.interner.resolve(name.node) == target)
+            }
+            _ => false,
+        }
     }
 
     /// Check decorators
@@ -2438,9 +2451,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     .collect();
                 Type::new(
                     TypeKind::Object(typedlua_parser::ast::types::ObjectType {
-                        members: self
-                            .arena
-                            .alloc_slice_fill_iter(resolved_members),
+                        members: self.arena.alloc_slice_fill_iter(resolved_members),
                         span: obj_type.span,
                     }),
                     typ.span,
@@ -2489,9 +2500,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
                 Type::new(
                     TypeKind::Function(typedlua_parser::ast::types::FunctionType {
-                        parameters: self
-                            .arena
-                            .alloc_slice_fill_iter(resolved_params),
+                        parameters: self.arena.alloc_slice_fill_iter(resolved_params),
                         return_type: self.arena.alloc(resolved_return),
                         ..func_type.clone()
                     }),

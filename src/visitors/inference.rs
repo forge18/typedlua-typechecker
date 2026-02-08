@@ -2172,8 +2172,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                         } else if matching_types.len() == 1 {
                             Ok(matching_types[0].clone())
                         } else {
-                            let types =
-                                self.arena.alloc_slice_fill_iter(matching_types);
+                            let types = self.arena.alloc_slice_fill_iter(matching_types);
                             Ok(Type::new(TypeKind::Union(types), typ.span))
                         }
                     }

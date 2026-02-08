@@ -117,7 +117,6 @@ pub struct AccessControl<'arena> {
     readonly_classes: FxHashMap<String, bool>, // Track classes with @readonly decorator
 }
 
-
 impl<'arena> AccessControl<'arena> {
     pub fn new() -> Self {
         Self::default()
