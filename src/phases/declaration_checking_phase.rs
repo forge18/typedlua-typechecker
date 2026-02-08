@@ -170,7 +170,7 @@ pub fn check_enum_declaration<'arena>(
         variants.into_iter().next().unwrap()
     } else {
         Type::new(
-            TypeKind::Union(arena.alloc_slice_fill_iter(variants.into_iter())),
+            TypeKind::Union(arena.alloc_slice_fill_iter(variants)),
             enum_decl.span,
         )
     };
@@ -269,7 +269,7 @@ pub fn check_interface_declaration<'arena>(
             .collect();
         let obj_type = Type::new(
             TypeKind::Object(ObjectType {
-                members: arena.alloc_slice_fill_iter(members_vec.into_iter()),
+                members: arena.alloc_slice_fill_iter(members_vec),
                 span: iface.span,
             }),
             iface.span,
@@ -357,7 +357,7 @@ pub fn check_interface_declaration<'arena>(
     // Create the interface type
     let iface_type = Type::new(
         TypeKind::Object(ObjectType {
-            members: arena.alloc_slice_fill_iter(members.clone().into_iter()),
+            members: arena.alloc_slice_fill_iter(members.clone()),
             span: iface.span,
         }),
         iface.span,
@@ -880,7 +880,7 @@ where
                         })
                         .collect();
                     ObjectTypeMember::Method(MethodSignature {
-                        parameters: arena.alloc_slice_fill_iter(new_params.into_iter()),
+                        parameters: arena.alloc_slice_fill_iter(new_params),
                         return_type: new_return_type,
                         ..method.clone()
                     })
@@ -897,7 +897,7 @@ where
             .collect();
         Type::new(
             TypeKind::Object(ObjectType {
-                members: arena.alloc_slice_fill_iter(new_members.into_iter()),
+                members: arena.alloc_slice_fill_iter(new_members),
                 span: obj.span,
             }),
             interface.span,

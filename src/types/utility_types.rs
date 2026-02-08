@@ -523,7 +523,7 @@ fn nilable<'arena>(
             if types.iter().any(is_nil_or_void) {
                 Ok(typ.clone())
             } else {
-                let mut new_types: Vec<_> = types.iter().cloned().collect();
+                let mut new_types: Vec<_> = types.to_vec();
                 new_types.push(Type::new(TypeKind::Primitive(PrimitiveType::Nil), span));
                 Ok(Type::new(
                     TypeKind::Union(arena.alloc_slice_fill_iter(new_types)),
@@ -733,7 +733,7 @@ pub fn evaluate_conditional_type<'arena>(
         // Try to match check_type against extends_type pattern and extract inferred types
         if try_match_and_infer(check_type, extends_type, &mut inferred_types, type_env) {
             // Match succeeded - evaluate true branch with inferred types
-            return substitute_inferred_types(arena, &conditional.true_type, &inferred_types);
+            return substitute_inferred_types(arena, conditional.true_type, &inferred_types);
         } else {
             // Match failed - return false branch
             return Ok((*conditional.false_type).clone());
@@ -832,7 +832,7 @@ fn contains_infer<'arena>(typ: &Type<'arena>) -> bool {
             func.parameters
                 .iter()
                 .any(|p| p.type_annotation.as_ref().is_some_and(contains_infer))
-                || contains_infer(&func.return_type)
+                || contains_infer(func.return_type)
         }
         TypeKind::Reference(type_ref) => type_ref
             .type_arguments
@@ -918,8 +918,8 @@ fn try_match_and_infer<'arena>(
 
                 params_match
                     && try_match_and_infer(
-                        &check_func.return_type,
-                        &pattern_func.return_type,
+                        check_func.return_type,
+                        pattern_func.return_type,
                         inferred,
                         type_env,
                     )

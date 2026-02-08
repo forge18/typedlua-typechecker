@@ -492,7 +492,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
         // If generic, declare type parameters as types in scope
         phases::declaration_checking_phase::register_function_type_parameters(
-            decl.type_parameters.as_deref(),
+            decl.type_parameters,
             &mut self.type_env,
             self.interner,
         )?;
@@ -777,7 +777,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                 return_types[0].clone()
             } else {
                 Type::new(
-                    TypeKind::Tuple(self.arena.alloc_slice_fill_iter(return_types.into_iter())),
+                    TypeKind::Tuple(self.arena.alloc_slice_fill_iter(return_types)),
                     return_stmt.span,
                 )
             };
@@ -1038,7 +1038,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                             .collect();
                         let obj_type = Type::new(
                             TypeKind::Object(ObjectType {
-                                members: self.arena.alloc_slice_fill_iter(members_vec.into_iter()),
+                                members: self.arena.alloc_slice_fill_iter(members_vec),
                                 span: iface.span,
                             }),
                             iface.span,
@@ -1262,7 +1262,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         );
 
         // Check decorators
-        self.check_decorators(&class_decl.decorators)?;
+        self.check_decorators(class_decl.decorators)?;
 
         // Check for @readonly decorator and track it
         let has_readonly =
@@ -1274,17 +1274,9 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                         self.interner.resolve(name.node) == "readonly"
                     }
                     typedlua_parser::ast::statement::DecoratorExpression::Call {
-                        callee, ..
-                    } => {
-                        if let typedlua_parser::ast::statement::DecoratorExpression::Identifier(
-                            name,
-                        ) = &**callee
-                        {
-                            self.interner.resolve(name.node) == "readonly"
-                        } else {
-                            false
-                        }
-                    }
+                        callee: box typedlua_parser::ast::statement::DecoratorExpression::Identifier(name),
+                        ..
+                    } => self.interner.resolve(name.node) == "readonly",
                     _ => false,
                 });
 
@@ -1309,7 +1301,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         // Register type parameters if this is a generic class
         // Register class type parameters in the type environment
         phases::declaration_checking_phase::register_class_type_parameters(
-            class_decl.type_parameters.as_deref(),
+            class_decl.type_parameters,
             &mut self.type_env,
             self.interner,
         )?;
@@ -1399,7 +1391,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             // Register the class constructor for parent argument validation
             self.type_env.register_class_constructor(
                 class_name.clone(),
-                class_decl.primary_constructor.clone().unwrap(),
+                class_decl.primary_constructor.unwrap(),
             );
         }
 
@@ -1588,7 +1580,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     self.check_abstract_methods_implemented(
                         &class_name,
                         &parent_name,
-                        &class_decl.members,
+                        class_decl.members,
                     )?;
                 }
             }
@@ -1755,7 +1747,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         prop: &PropertyDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
         // Check decorators
-        self.check_decorators(&prop.decorators)?;
+        self.check_decorators(prop.decorators)?;
 
         // Check initializer if present
         if let Some(initializer) = &prop.initializer {
@@ -1855,7 +1847,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         method: &MethodDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
         // Check decorators
-        self.check_decorators(&method.decorators)?;
+        self.check_decorators(method.decorators)?;
 
         // Check override keyword if present
         if method.is_override {
@@ -1935,7 +1927,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
             // Register type parameters if generic (with duplicate checking and constraint support)
             phases::declaration_checking_phase::register_function_type_parameters(
-                method.type_parameters.as_deref(),
+                method.type_parameters,
                 &mut self.type_env,
                 self.interner,
             )?;
@@ -1996,7 +1988,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         getter: &GetterDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
         // Check decorators
-        self.check_decorators(&getter.decorators)?;
+        self.check_decorators(getter.decorators)?;
 
         // Enter getter scope
         self.symbol_table.enter_scope();
@@ -2049,7 +2041,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         setter: &SetterDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
         // Check decorators
-        self.check_decorators(&setter.decorators)?;
+        self.check_decorators(setter.decorators)?;
 
         // Enter setter scope
         self.symbol_table.enter_scope();
@@ -2455,7 +2447,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     TypeKind::Object(typedlua_parser::ast::types::ObjectType {
                         members: self
                             .arena
-                            .alloc_slice_fill_iter(resolved_members.into_iter()),
+                            .alloc_slice_fill_iter(resolved_members),
                         span: obj_type.span,
                     }),
                     typ.span,
@@ -2465,7 +2457,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                 let resolved: Vec<Type<'arena>> =
                     members.iter().map(|m| self.deep_resolve_type(m)).collect();
                 Type::new(
-                    TypeKind::Union(self.arena.alloc_slice_fill_iter(resolved.into_iter())),
+                    TypeKind::Union(self.arena.alloc_slice_fill_iter(resolved)),
                     typ.span,
                 )
             }
@@ -2481,7 +2473,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                 let resolved: Vec<Type<'arena>> =
                     elems.iter().map(|e| self.deep_resolve_type(e)).collect();
                 Type::new(
-                    TypeKind::Tuple(self.arena.alloc_slice_fill_iter(resolved.into_iter())),
+                    TypeKind::Tuple(self.arena.alloc_slice_fill_iter(resolved)),
                     typ.span,
                 )
             }
@@ -2500,13 +2492,13 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                         })
                         .collect();
 
-                let resolved_return = self.deep_resolve_type(&func_type.return_type);
+                let resolved_return = self.deep_resolve_type(func_type.return_type);
 
                 Type::new(
                     TypeKind::Function(typedlua_parser::ast::types::FunctionType {
                         parameters: self
                             .arena
-                            .alloc_slice_fill_iter(resolved_params.into_iter()),
+                            .alloc_slice_fill_iter(resolved_params),
                         return_type: self.arena.alloc(resolved_return),
                         ..func_type.clone()
                     }),
@@ -2574,7 +2566,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     .map(|m| self.substitute_type_args_in_type(m, type_args, interface_name))
                     .collect();
                 Type::new(
-                    TypeKind::Union(self.arena.alloc_slice_fill_iter(subst.into_iter())),
+                    TypeKind::Union(self.arena.alloc_slice_fill_iter(subst)),
                     typ.span,
                 )
             }
@@ -2677,7 +2669,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
         let string_type = Type::new(
             TypeKind::Object(ObjectType {
-                members: self.arena.alloc_slice_fill_iter(string_members.into_iter()),
+                members: self.arena.alloc_slice_fill_iter(string_members),
                 span,
             }),
             span,
@@ -2721,7 +2713,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
 
         let math_type = Type::new(
             TypeKind::Object(ObjectType {
-                members: self.arena.alloc_slice_fill_iter(math_members.into_iter()),
+                members: self.arena.alloc_slice_fill_iter(math_members),
                 span,
             }),
             span,

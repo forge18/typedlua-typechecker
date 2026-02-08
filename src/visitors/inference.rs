@@ -541,7 +541,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
 
                 // Build the function type
                 let func_type = FunctionType {
-                    type_parameters: func_expr.type_parameters.clone(),
+                    type_parameters: func_expr.type_parameters,
                     parameters: func_expr.parameters,
                     return_type: self.arena.alloc(
                         func_expr
@@ -641,8 +641,8 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
             }
 
             ExpressionKind::Try(try_expr) => {
-                let expr_type = self.infer_expression(&try_expr.expression)?;
-                let catch_type = self.infer_expression(&try_expr.catch_expression)?;
+                let expr_type = self.infer_expression(try_expr.expression)?;
+                let catch_type = self.infer_expression(try_expr.catch_expression)?;
 
                 if TypeCompatibility::is_assignable(&expr_type, &catch_type) {
                     Ok(catch_type)
@@ -679,7 +679,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                         Ok(Type::new(
                             TypeKind::Reference(TypeReference {
                                 name: typedlua_parser::ast::Spanned::new(*name, span),
-                                type_arguments: type_args.clone(),
+                                type_arguments: *type_args,
                                 span,
                             }),
                             span,
@@ -1133,7 +1133,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 } else if non_nil_types.len() == 1 {
                     Ok(non_nil_types[0].clone())
                 } else {
-                    let types = self.arena.alloc_slice_fill_iter(non_nil_types.into_iter());
+                    let types = self.arena.alloc_slice_fill_iter(non_nil_types);
                     Ok(Type::new(TypeKind::Union(types), span))
                 }
             }
@@ -1189,7 +1189,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
         debug!(span = ?match_expr.span, "Checking match expression");
 
         // Type check the value being matched
-        let value_type = self.infer_expression(&match_expr.value)?;
+        let value_type = self.infer_expression(match_expr.value)?;
         debug!(value_type = ?value_type.kind, "Matched value type");
 
         if match_expr.arms.is_empty() {
@@ -1201,10 +1201,10 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
         }
 
         // Check exhaustiveness
-        self.check_exhaustiveness(&match_expr.arms, &value_type, match_expr.span)?;
+        self.check_exhaustiveness(match_expr.arms, &value_type, match_expr.span)?;
 
         // Check for unreachable patterns
-        self.check_unreachable_patterns(&match_expr.arms);
+        self.check_unreachable_patterns(match_expr.arms);
 
         // Type check each arm and collect result types
         let mut arm_types = Vec::new();
@@ -1368,7 +1368,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                                     pattern: pat,
                                     ..
                                 }) => {
-                                    self.check_pattern(pat, *elem_type)?;
+                                    self.check_pattern(pat, elem_type)?;
                                 }
                                 ArrayPatternElement::Rest(ident) => {
                                     // Rest pattern gets the array type
@@ -1766,13 +1766,13 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
 
             // Or-pattern subsumption cases
             (Pattern::Or(or1), Pattern::Or(or2)) => {
-                self.or_pattern_subsumes_or_pattern(&or1.alternatives, &or2.alternatives)
+                self.or_pattern_subsumes_or_pattern(or1.alternatives, or2.alternatives)
             }
             (Pattern::Or(or_pat), later_pat) => {
-                self.or_pattern_subsumes_pattern(&or_pat.alternatives, later_pat)
+                self.or_pattern_subsumes_pattern(or_pat.alternatives, later_pat)
             }
             (earlier_pat, Pattern::Or(or_pat)) => {
-                self.pattern_subsumes_or_pattern(earlier_pat, &or_pat.alternatives)
+                self.pattern_subsumes_or_pattern(earlier_pat, or_pat.alternatives)
             }
 
             // Array pattern subsumption
@@ -2173,7 +2173,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                             Ok(matching_types[0].clone())
                         } else {
                             let types =
-                                self.arena.alloc_slice_fill_iter(matching_types.into_iter());
+                                self.arena.alloc_slice_fill_iter(matching_types);
                             Ok(Type::new(TypeKind::Union(types), typ.span))
                         }
                     }
@@ -2194,7 +2194,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                     Ok(narrowed_types[0].clone())
                 } else {
                     // Different types - return union
-                    let types = self.arena.alloc_slice_fill_iter(narrowed_types.into_iter());
+                    let types = self.arena.alloc_slice_fill_iter(narrowed_types);
                     Ok(Type::new(TypeKind::Union(types), typ.span))
                 }
             }
@@ -2310,7 +2310,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                     }
                 }
                 Statement::For(for_stmt) => match *for_stmt {
-                    typedlua_parser::ast::statement::ForStatement::Numeric(ref numeric) => {
+                    typedlua_parser::ast::statement::ForStatement::Numeric(numeric) => {
                         if let Some(body_type) =
                             self.infer_block_return_type_recursive(&numeric.body)?
                         {
@@ -2339,7 +2339,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
         } else {
             // Multiple return types - try to find a common type
             // For now, create a union of all return types
-            let return_types = self.arena.alloc_slice_fill_iter(return_types.into_iter());
+            let return_types = self.arena.alloc_slice_fill_iter(return_types);
             Ok(Some(Type::new(TypeKind::Union(return_types), block.span)))
         }
     }

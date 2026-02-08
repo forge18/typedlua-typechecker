@@ -44,7 +44,7 @@ fn substitute_type<'arena>(
             // Check if this is a type parameter
             if let Some(substituted) = substitutions.get(&name) {
                 // Apply type arguments if present (e.g., for higher-kinded types)
-                if let Some(ref args) = type_ref.type_arguments {
+                if let Some(args) = type_ref.type_arguments {
                     // This would be a higher-kinded type - not common, but we should handle it
                     // For now, just return an error
                     if !args.is_empty() {
@@ -57,7 +57,7 @@ fn substitute_type<'arena>(
                 Ok(substituted.clone())
             } else {
                 // Not a type parameter - recursively substitute in type arguments
-                if let Some(ref args) = type_ref.type_arguments {
+                if let Some(args) = type_ref.type_arguments {
                     let substituted_args: Result<Vec<_>, _> = args
                         .iter()
                         .map(|arg| substitute_type(arena, arg, substitutions))
@@ -150,14 +150,14 @@ fn substitute_type<'arena>(
                 })
                 .collect();
 
-            let substituted_return = substitute_type(arena, &func_type.return_type, substitutions)?;
+            let substituted_return = substitute_type(arena, func_type.return_type, substitutions)?;
 
             Ok(Type::new(
                 TypeKind::Function(typedlua_parser::ast::types::FunctionType {
                     type_parameters: None, // Type parameters are gone after substitution
                     parameters: arena.alloc_slice_fill_iter(substituted_params?),
                     return_type: arena.alloc(substituted_return),
-                    throws: func_type.throws.clone(),
+                    throws: func_type.throws,
                     span: func_type.span,
                 }),
                 typ.span,
@@ -253,7 +253,7 @@ pub fn check_type_constraints<'arena>(
     }
 
     for (param, arg) in type_params.iter().zip(type_args.iter()) {
-        if let Some(ref constraint) = param.constraint {
+        if let Some(constraint) = param.constraint {
             // Check if arg is assignable to constraint
             // This is a simplified check - a real implementation would use TypeCompatibility
             // For now, we'll just do a basic check
@@ -307,7 +307,7 @@ pub fn infer_type_arguments<'arena>(
             inferred
                 .get(&type_param.name.node)
                 .cloned()
-                .or_else(|| type_param.default.map(|d| d.clone()))
+                .or_else(|| type_param.default.cloned())
                 .ok_or_else(|| {
                     format!(
                         "Could not infer type argument for parameter '{:?}'",
@@ -593,7 +593,7 @@ pub fn instantiate_function_declaration<'arena>(
             .as_ref()
             .map(|t| substitute_type(arena, t, substitutions).unwrap_or_else(|_| t.clone())),
         body: instantiate_block(arena, &func.body, substitutions),
-        throws: func.throws.clone(),
+        throws: func.throws,
         span: func.span,
     }
 }
@@ -1004,7 +1004,7 @@ fn instantiate_match_expression<'arena>(
     MatchExpression {
         value: arena.alloc(instantiate_expression(
             arena,
-            &match_expr.value,
+            match_expr.value,
             substitutions,
         )),
         arms: arena.alloc_slice_fill_iter(arms),
@@ -1021,13 +1021,13 @@ fn instantiate_try_expression<'arena>(
     typedlua_parser::ast::expression::TryExpression {
         expression: arena.alloc(instantiate_expression(
             arena,
-            &try_expr.expression,
+            try_expr.expression,
             substitutions,
         )),
         catch_variable: try_expr.catch_variable.clone(),
         catch_expression: arena.alloc(instantiate_expression(
             arena,
-            &try_expr.catch_expression,
+            try_expr.catch_expression,
             substitutions,
         )),
         span: try_expr.span,

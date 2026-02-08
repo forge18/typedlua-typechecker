@@ -107,6 +107,7 @@ pub trait AccessControlVisitor<'arena>: TypeCheckVisitor {
 }
 
 /// Default implementation of access control
+#[derive(Default)]
 pub struct AccessControl<'arena> {
     class_members: FxHashMap<String, Vec<ClassMemberInfo<'arena>>>,
     final_classes: FxHashMap<String, bool>,
@@ -116,18 +117,6 @@ pub struct AccessControl<'arena> {
     readonly_classes: FxHashMap<String, bool>, // Track classes with @readonly decorator
 }
 
-impl<'arena> Default for AccessControl<'arena> {
-    fn default() -> Self {
-        Self {
-            class_members: FxHashMap::default(),
-            final_classes: FxHashMap::default(),
-            class_parents: FxHashMap::default(),
-            class_implements: FxHashMap::default(),
-            current_class: None,
-            readonly_classes: FxHashMap::default(),
-        }
-    }
-}
 
 impl<'arena> AccessControl<'arena> {
     pub fn new() -> Self {

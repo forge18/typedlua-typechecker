@@ -268,7 +268,7 @@ impl TypeCompatibility {
         }
 
         // Return type is covariant: source return must be assignable to target return
-        Self::is_assignable_recursive(&source.return_type, &target.return_type, visited)
+        Self::is_assignable_recursive(source.return_type, target.return_type, visited)
     }
 
     /// Check object type structural compatibility
