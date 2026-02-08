@@ -1174,10 +1174,10 @@ mod tests {
         let result = inferrer.infer_expression(&expr);
         assert!(result.is_ok());
         let typ = result.unwrap();
-        // Type assertions currently return Unknown (not yet fully implemented)
+        // Type assertions return the asserted type
         assert!(matches!(
             typ.kind,
-            TypeKind::Primitive(PrimitiveType::Unknown)
+            TypeKind::Primitive(PrimitiveType::Number)
         ));
     }
 

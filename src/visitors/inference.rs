@@ -701,9 +701,66 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 self.infer_expression(inner)
             }
 
-            _ => {
-                // For unimplemented expression types, return unknown
-                Ok(Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span))
+            ExpressionKind::SelfKeyword => {
+                // 'self' refers to the current instance in a class method
+                // Look up 'self' in the symbol table
+                if let Some(symbol) = self.symbol_table.lookup("self") {
+                    Ok(symbol.typ.clone())
+                } else {
+                    Err(TypeCheckError::new(
+                        "'self' keyword used outside of class context".to_string(),
+                        span,
+                    ))
+                }
+            }
+
+            ExpressionKind::SuperKeyword => {
+                // 'super' refers to the parent class
+                // Look up 'super' in the symbol table
+                if let Some(symbol) = self.symbol_table.lookup("super") {
+                    Ok(symbol.typ.clone())
+                } else {
+                    Err(TypeCheckError::new(
+                        "'super' keyword used outside of class context".to_string(),
+                        span,
+                    ))
+                }
+            }
+
+            ExpressionKind::Template(template_lit) => {
+                // Template literals are always strings
+                // Type check the interpolated expressions
+                for part in template_lit.parts.iter() {
+                    if let luanext_parser::ast::expression::TemplatePart::Expression(expr) = part {
+                        // Type check the expression, but we don't need its type
+                        // as all values are coerced to strings in template literals
+                        self.infer_expression(expr)?;
+                    }
+                }
+                // Template literals always produce strings
+                Ok(Type::new(TypeKind::Primitive(PrimitiveType::String), span))
+            }
+
+            ExpressionKind::TypeAssertion(expr, asserted_type) => {
+                // Type assertions (expr as Type) override the inferred type
+                // First, infer the expression type to ensure it's valid
+                let expr_type = self.infer_expression(expr)?;
+
+                // Check if the assertion is valid (expression type is compatible with asserted type)
+                if !TypeCompatibility::is_assignable(&expr_type, asserted_type)
+                    && !TypeCompatibility::is_assignable(asserted_type, &expr_type)
+                {
+                    self.diagnostic_handler.error(
+                        span,
+                        &format!(
+                            "Type assertion is invalid: cannot assert type '{:?}' on expression of type '{:?}'",
+                            asserted_type.kind, expr_type.kind
+                        ),
+                    );
+                }
+
+                // Return the asserted type
+                Ok(asserted_type.clone())
             }
         }
     }

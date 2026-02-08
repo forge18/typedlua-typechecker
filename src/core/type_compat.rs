@@ -1,3 +1,4 @@
+use crate::core::type_environment::TypeEnvironment;
 use crate::type_relations::TypeRelationCache;
 use luanext_parser::ast::expression::Literal;
 use luanext_parser::ast::types::{
@@ -29,6 +30,16 @@ impl TypeCompatibility {
         Self::is_assignable_with_cache_recursive(source, target, &mut visited, cache)
     }
 
+    /// Check if `source` is assignable to `target` with type environment for alias resolution
+    pub fn is_assignable_with_env<'arena>(
+        source: &Type<'arena>,
+        target: &Type<'arena>,
+        type_env: &TypeEnvironment<'arena>,
+    ) -> bool {
+        let mut visited: HashSet<(usize, usize)> = HashSet::new();
+        Self::is_assignable_with_env_recursive(source, target, type_env, &mut visited)
+    }
+
     fn is_assignable_with_cache_recursive(
         source: &Type,
         target: &Type,
@@ -47,6 +58,124 @@ impl TypeCompatibility {
         cache.insert(source, target, result);
 
         result
+    }
+
+    fn is_assignable_with_env_recursive<'arena>(
+        source: &Type<'arena>,
+        target: &Type<'arena>,
+        type_env: &TypeEnvironment<'arena>,
+        visited: &mut HashSet<(usize, usize)>,
+    ) -> bool {
+        let source_ptr = type_ptr(source);
+        let target_ptr = type_ptr(target);
+
+        if visited.contains(&(source_ptr, target_ptr)) {
+            return true;
+        }
+        visited.insert((source_ptr, target_ptr));
+
+        // Unknown is assignable to/from anything
+        if matches!(source.kind, TypeKind::Primitive(PrimitiveType::Unknown))
+            || matches!(target.kind, TypeKind::Primitive(PrimitiveType::Unknown))
+        {
+            return true;
+        }
+
+        // Never is assignable to anything
+        if matches!(source.kind, TypeKind::Primitive(PrimitiveType::Never)) {
+            return true;
+        }
+
+        // Nothing is assignable to Never
+        if matches!(target.kind, TypeKind::Primitive(PrimitiveType::Never)) {
+            return false;
+        }
+
+        match (&source.kind, &target.kind) {
+            // Type references - resolve aliases
+            (TypeKind::Reference(s_ref), TypeKind::Reference(t_ref)) => {
+                use luanext_parser::string_interner::StringInterner;
+                let interner = StringInterner::new_with_common_identifiers().0;
+
+                let s_name = interner.resolve(s_ref.name.node);
+                let t_name = interner.resolve(t_ref.name.node);
+
+                // Check if names match exactly
+                if s_name == t_name {
+                    // Same type reference name - check type arguments if present
+                    match (&s_ref.type_arguments, &t_ref.type_arguments) {
+                        (None, None) => true,
+                        (Some(s_args), Some(t_args)) if s_args.len() == t_args.len() => {
+                            // Check all type arguments are compatible
+                            s_args.iter().zip(t_args.iter()).all(|(s_arg, t_arg)| {
+                                Self::is_assignable_with_env_recursive(
+                                    s_arg, t_arg, type_env, visited,
+                                )
+                            })
+                        }
+                        _ => false,
+                    }
+                } else {
+                    // Different names - resolve aliases and check structural compatibility
+                    let resolved_source = type_env.lookup_type_alias(&s_name);
+                    let resolved_target = type_env.lookup_type_alias(&t_name);
+
+                    match (resolved_source, resolved_target) {
+                        (Some(resolved_s), Some(resolved_t)) => {
+                            // Both are aliases - check if their underlying types are compatible
+                            Self::is_assignable_with_env_recursive(
+                                resolved_s, resolved_t, type_env, visited,
+                            )
+                        }
+                        (Some(resolved_s), None) => {
+                            // Source is an alias, target is not - check if alias resolves to target
+                            Self::is_assignable_with_env_recursive(
+                                resolved_s, target, type_env, visited,
+                            )
+                        }
+                        (None, Some(resolved_t)) => {
+                            // Target is an alias, source is not - check if source matches resolved target
+                            Self::is_assignable_with_env_recursive(
+                                source, resolved_t, type_env, visited,
+                            )
+                        }
+                        (None, None) => {
+                            // Neither is an alias - names don't match, not compatible
+                            false
+                        }
+                    }
+                }
+            }
+
+            // Type reference vs concrete type - resolve the reference
+            (TypeKind::Reference(s_ref), _) => {
+                use luanext_parser::string_interner::StringInterner;
+                let interner = StringInterner::new_with_common_identifiers().0;
+                let s_name = interner.resolve(s_ref.name.node);
+
+                if let Some(resolved) = type_env.lookup_type_alias(&s_name) {
+                    Self::is_assignable_with_env_recursive(resolved, target, type_env, visited)
+                } else {
+                    // Not an alias - can't resolve, assume incompatible
+                    false
+                }
+            }
+            (_, TypeKind::Reference(t_ref)) => {
+                use luanext_parser::string_interner::StringInterner;
+                let interner = StringInterner::new_with_common_identifiers().0;
+                let t_name = interner.resolve(t_ref.name.node);
+
+                if let Some(resolved) = type_env.lookup_type_alias(&t_name) {
+                    Self::is_assignable_with_env_recursive(source, resolved, type_env, visited)
+                } else {
+                    // Not an alias - can't resolve, assume incompatible
+                    false
+                }
+            }
+
+            // For all other cases, delegate to the standard recursive check
+            _ => Self::is_assignable_recursive(source, target, visited),
+        }
     }
 
     fn is_assignable_recursive(
