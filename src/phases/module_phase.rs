@@ -306,6 +306,7 @@ pub fn check_import_statement<'arena>(
                     module_resolver,
                     current_module_id,
                     lazy_callback,
+                    false, // Not a type-only import
                     diagnostic_handler,
                 )?;
 
@@ -332,6 +333,7 @@ pub fn check_import_statement<'arena>(
                     module_resolver,
                     current_module_id,
                     lazy_callback,
+                    true, // This is a type-only import
                     diagnostic_handler,
                 )?;
 
@@ -422,6 +424,7 @@ pub fn check_import_statement<'arena>(
                     module_resolver,
                     current_module_id,
                     lazy_callback,
+                    false, // Not a type-only import
                     diagnostic_handler,
                 )?;
 
@@ -464,6 +467,7 @@ fn resolve_import_type<'arena>(
     module_resolver: Option<&Arc<ModuleResolver>>,
     current_module_id: Option<&ModuleId>,
     lazy_callback: Option<&dyn LazyTypeCheckCallback>,
+    is_type_only_import: bool,
     diagnostic_handler: &Arc<dyn DiagnosticHandler>,
 ) -> Result<Type<'arena>, TypeCheckError> {
     if let (Some(registry), Some(resolver), Some(current_id)) =
@@ -478,6 +482,14 @@ fn resolve_import_type<'arena>(
                 match registry.get_exports(&source_module_id) {
                     Ok(source_exports) => {
                         if let Some(exported_sym) = source_exports.get_named(symbol_name) {
+                            // Validation: ensure runtime imports don't use type-only exports
+                            validate_import_export_compatibility(
+                                &exported_sym,
+                                is_type_only_import,
+                                symbol_name,
+                                &source_module_id,
+                                span,
+                            )?;
                             return Ok(exported_sym.symbol.typ.clone());
                         } else {
                             // Export doesn't exist
@@ -523,6 +535,14 @@ fn resolve_import_type<'arena>(
                                     if let Some(exported_sym) =
                                         source_exports.get_named(symbol_name)
                                     {
+                                        // Validation: ensure runtime imports don't use type-only exports
+                                        validate_import_export_compatibility(
+                                            &exported_sym,
+                                            is_type_only_import,
+                                            symbol_name,
+                                            &source_module_id,
+                                            span,
+                                        )?;
                                         return Ok(exported_sym.symbol.typ.clone());
                                     } else {
                                         let error = ModuleError::ExportNotFound {
@@ -573,6 +593,87 @@ fn resolve_import_type<'arena>(
             searched_paths: Vec::new(),
         };
         return Err(TypeCheckError::new(error.to_string(), span));
+    }
+}
+
+/// Validate import/export compatibility before returning the type.
+///
+/// Performs the following checks:
+/// 1. Runtime imports cannot reference type-only exports
+/// 2. Type-only imports can reference any export
+///
+/// # Parameters
+///
+/// - `exported_sym`: The symbol being exported
+/// - `is_type_only_import`: Whether this is a `import type` (type-only) or regular import
+/// - `symbol_name`: Name of the symbol for error reporting
+/// - `module_id`: ID of the source module for error reporting
+/// - `span`: Source span for error reporting
+///
+/// # Returns
+///
+/// Ok(()) if validation passes, Err(TypeCheckError) if validation fails
+fn validate_import_export_compatibility(
+    exported_sym: &ExportedSymbol,
+    is_type_only_import: bool,
+    symbol_name: &str,
+    module_id: &ModuleId,
+    span: Span,
+) -> Result<(), TypeCheckError> {
+    // Runtime imports cannot reference type-only exports
+    if !is_type_only_import && exported_sym.is_type_only {
+        let error = ModuleError::RuntimeImportOfTypeOnly {
+            module_id: module_id.clone(),
+            export_name: symbol_name.to_string(),
+        };
+        return Err(TypeCheckError::new(error.to_string(), span));
+    }
+
+    Ok(())
+}
+
+/// Apply type arguments to an imported generic type.
+///
+/// When importing a generic type with type arguments (e.g., `import { List<string> } from './mod'`),
+/// this function instantiates the generic type with the provided arguments.
+///
+/// # Parameters
+///
+/// - `arena`: Arena allocator for creating new types
+/// - `base_type`: The type of the imported symbol
+/// - `type_arguments`: Optional type arguments from the import statement
+/// - `symbol_name`: Name of the symbol for error reporting
+/// - `span`: Source span for error reporting
+///
+/// # Returns
+///
+/// The instantiated type with type arguments applied, or base_type if no arguments provided
+fn apply_type_arguments<'arena>(
+    arena: &'arena bumpalo::Bump,
+    base_type: &Type<'arena>,
+    type_arguments: Option<&[Type<'arena>]>,
+    symbol_name: &str,
+    span: Span,
+) -> Result<Type<'arena>, TypeCheckError> {
+    match type_arguments {
+        None => Ok(base_type.clone()),
+        Some(args) => {
+            // For now, we don't have the type parameters from the exported symbol,
+            // so we can only validate that the type supports generics.
+            // Full generic instantiation would require tracking TypeParameter info
+            // in the exported symbols, which is a future enhancement.
+
+            if args.is_empty() {
+                Ok(base_type.clone())
+            } else {
+                // Generic types are not yet fully supported across module boundaries
+                // This is a placeholder for future implementation
+                Err(TypeCheckError::new(
+                    format!("Generic type arguments on cross-module imports are not yet supported for '{}'", symbol_name),
+                    span,
+                ))
+            }
+        }
     }
 }
 
@@ -669,6 +770,7 @@ mod tests {
             None,
             None,
             None,
+            false, // Not a type-only import
             &handler,
         );
         // Should return error when no resolver configured
@@ -774,5 +876,118 @@ mod tests {
 
         let result = extract_exports(&program, &symbol_table, &interner, None, None, None);
         assert!(result.named.is_empty());
+    }
+
+    #[test]
+    fn test_validate_type_only_export_runtime_import() {
+        let span = Span::new(0, 10, 0, 10);
+        let module_id = crate::module_resolver::ModuleId::new(std::path::PathBuf::from("module.tl"));
+
+        // Create a type-only export
+        let type_only_symbol = crate::utils::symbol_table::Symbol::new(
+            "MyType".to_string(),
+            crate::utils::symbol_table::SymbolKind::TypeAlias,
+            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+            span,
+        );
+        let exported_sym = ExportedSymbol::new(type_only_symbol, true); // is_type_only=true
+
+        // Try to import as runtime (is_type_only_import=false) - should fail
+        let result = validate_import_export_compatibility(
+            &exported_sym,
+            false, // Runtime import
+            "MyType",
+            &module_id,
+            span,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Cannot import type-only"));
+    }
+
+    #[test]
+    fn test_validate_type_only_export_type_import() {
+        let span = Span::new(0, 10, 0, 10);
+        let module_id = crate::module_resolver::ModuleId::new(std::path::PathBuf::from("module.tl"));
+
+        // Create a type-only export
+        let type_only_symbol = crate::utils::symbol_table::Symbol::new(
+            "MyType".to_string(),
+            crate::utils::symbol_table::SymbolKind::TypeAlias,
+            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+            span,
+        );
+        let exported_sym = ExportedSymbol::new(type_only_symbol, true); // is_type_only=true
+
+        // Import as type-only (is_type_only_import=true) - should pass
+        let result = validate_import_export_compatibility(
+            &exported_sym,
+            true, // Type-only import
+            "MyType",
+            &module_id,
+            span,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_runtime_export_runtime_import() {
+        let span = Span::new(0, 10, 0, 10);
+        let module_id = crate::module_resolver::ModuleId::new(std::path::PathBuf::from("module.tl"));
+
+        // Create a runtime export (not type-only)
+        let runtime_symbol = crate::utils::symbol_table::Symbol::new(
+            "myVar".to_string(),
+            crate::utils::symbol_table::SymbolKind::Variable,
+            Type::new(TypeKind::Primitive(PrimitiveType::Number), span),
+            span,
+        );
+        let exported_sym = ExportedSymbol::new(runtime_symbol, false); // is_type_only=false
+
+        // Import as runtime - should pass
+        let result = validate_import_export_compatibility(
+            &exported_sym,
+            false, // Runtime import
+            "myVar",
+            &module_id,
+            span,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_apply_type_arguments_no_args() {
+        let arena = bumpalo::Bump::new();
+        let span = Span::new(0, 10, 0, 10);
+        let base_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        // Apply no type arguments - should return base type unchanged
+        let result = apply_type_arguments(&arena, &base_type, None, "MyType", span);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap().kind, TypeKind::Primitive(PrimitiveType::Number)));
+    }
+
+    #[test]
+    fn test_apply_type_arguments_empty_args() {
+        let arena = bumpalo::Bump::new();
+        let span = Span::new(0, 10, 0, 10);
+        let base_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+
+        // Apply empty type arguments slice - should return base type unchanged
+        let result = apply_type_arguments(&arena, &base_type, Some(&[]), "MyType", span);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap().kind, TypeKind::Primitive(PrimitiveType::Number)));
+    }
+
+    #[test]
+    fn test_apply_type_arguments_with_args_not_supported() {
+        let arena = bumpalo::Bump::new();
+        let span = Span::new(0, 10, 0, 10);
+        let base_type = Type::new(TypeKind::Primitive(PrimitiveType::Number), span);
+        let arg_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+
+        // Apply type arguments to generic - should fail (not yet supported)
+        let result = apply_type_arguments(&arena, &base_type, Some(&[arg_type]), "List", span);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not yet supported"));
     }
 }
