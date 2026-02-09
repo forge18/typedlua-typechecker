@@ -27,6 +27,27 @@ pub enum ModuleError {
         module_id: ModuleId,
         export_name: String,
     },
+
+    /// Type-check in progress (circular lazy resolution)
+    TypeCheckInProgress {
+        module: ModuleId,
+        depth: usize,
+        max_depth: usize,
+    },
+
+    /// Export type mismatch between import and export
+    ExportTypeMismatch {
+        module_id: ModuleId,
+        export_name: String,
+        expected_type: String,
+        actual_type: String,
+    },
+
+    /// Runtime import of type-only export
+    RuntimeImportOfTypeOnly {
+        module_id: ModuleId,
+        export_name: String,
+    },
 }
 
 impl fmt::Display for ModuleError {
@@ -72,6 +93,47 @@ impl fmt::Display for ModuleError {
                     "Module '{}' does not export '{}'",
                     module_id, export_name
                 )
+            }
+            ModuleError::TypeCheckInProgress {
+                module,
+                depth,
+                max_depth,
+            } => {
+                writeln!(
+                    f,
+                    "Circular dependency detected during lazy type resolution"
+                )?;
+                writeln!(f, "  Module: {}", module)?;
+                writeln!(f, "  Current recursion depth: {}/{}", depth, max_depth)?;
+                write!(
+                    f,
+                    "  Likely cause: Circular imports with type dependencies"
+                )
+            }
+            ModuleError::ExportTypeMismatch {
+                module_id,
+                export_name,
+                expected_type,
+                actual_type,
+            } => {
+                writeln!(
+                    f,
+                    "Type mismatch for export '{}' in module '{}'",
+                    export_name, module_id
+                )?;
+                writeln!(f, "  Expected: {}", expected_type)?;
+                write!(f, "  Found:    {}", actual_type)
+            }
+            ModuleError::RuntimeImportOfTypeOnly {
+                module_id,
+                export_name,
+            } => {
+                writeln!(
+                    f,
+                    "Cannot import type-only export '{}' from '{}' as a runtime value",
+                    export_name, module_id
+                )?;
+                write!(f, "  Use 'import type {{ {} }}' instead", export_name)
             }
         }
     }

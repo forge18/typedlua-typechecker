@@ -12,7 +12,7 @@
 use crate::cli::diagnostics::DiagnosticHandler;
 use crate::core::type_environment::TypeEnvironment;
 use crate::module_resolver::{
-    ExportedSymbol, ModuleExports, ModuleId, ModuleRegistry, ModuleResolver,
+    ExportedSymbol, ModuleError, ModuleExports, ModuleId, ModuleRegistry, ModuleResolver,
 };
 use crate::utils::symbol_table::{Symbol, SymbolKind, SymbolTable};
 use crate::visitors::{AccessControl, AccessControlVisitor, ClassMemberInfo, ClassMemberKind};
@@ -26,6 +26,16 @@ use luanext_parser::span::Span;
 use luanext_parser::string_interner::StringInterner;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// Callback trait for lazy type-checking of dependencies during import resolution
+///
+/// When an import references a module that hasn't been type-checked yet,
+/// the resolver can invoke this callback to trigger type-checking of that dependency
+/// before attempting to resolve the import again.
+pub trait LazyTypeCheckCallback: Send + Sync {
+    /// Trigger type-checking of a dependency module
+    fn type_check_dependency(&self, module_id: &ModuleId) -> Result<(), ModuleError>;
+}
 
 /// Convert a `Symbol<'arena>` to `Symbol<'static>` for cross-module storage.
 ///
@@ -254,6 +264,7 @@ fn handle_reexport(
 /// - `interner`: String interner for resolving names
 /// - `module_dependencies`: Vector to track import dependencies
 /// - `module_registry`, `module_resolver`, `current_module_id`: Optional module resolution components
+/// - `lazy_callback`: Optional callback for lazy type-checking of uncompiled dependencies
 /// - `diagnostic_handler`: For reporting import resolution errors
 #[allow(clippy::too_many_arguments)]
 pub fn check_import_statement<'arena>(
@@ -266,6 +277,7 @@ pub fn check_import_statement<'arena>(
     module_registry: Option<&Arc<ModuleRegistry>>,
     module_resolver: Option<&Arc<ModuleResolver>>,
     current_module_id: Option<&ModuleId>,
+    lazy_callback: Option<&dyn LazyTypeCheckCallback>,
     diagnostic_handler: &Arc<dyn DiagnosticHandler>,
 ) -> Result<(), TypeCheckError> {
     match &import.clause {
@@ -293,6 +305,7 @@ pub fn check_import_statement<'arena>(
                     module_registry,
                     module_resolver,
                     current_module_id,
+                    lazy_callback,
                     diagnostic_handler,
                 )?;
 
@@ -318,6 +331,7 @@ pub fn check_import_statement<'arena>(
                     module_registry,
                     module_resolver,
                     current_module_id,
+                    lazy_callback,
                     diagnostic_handler,
                 )?;
 
@@ -407,6 +421,7 @@ pub fn check_import_statement<'arena>(
                     module_registry,
                     module_resolver,
                     current_module_id,
+                    lazy_callback,
                     diagnostic_handler,
                 )?;
 
@@ -425,12 +440,18 @@ pub fn check_import_statement<'arena>(
     Ok(())
 }
 
+/// Maximum recursion depth for lazy type-checking (prevents infinite loops)
+const MAX_LAZY_DEPTH: usize = 10;
+
 /// Resolve the type of an imported symbol from a source module.
 ///
 /// This function attempts to resolve the type of a symbol being imported from another module.
 /// If module resolution is configured and the source module is found, it looks up the symbol
-/// in the module's exports and returns its type. If resolution fails, it reports an error
-/// via the diagnostic handler and returns an Unknown type as a fallback.
+/// in the module's exports and returns its type.
+///
+/// If the module hasn't been type-checked yet but exports are available, returns those.
+/// If exports are not available and a lazy callback is provided, attempts lazy type-checking
+/// before failing with a proper error.
 ///
 /// Module dependencies are tracked by adding the resolved source module path to the dependencies vector.
 #[allow(clippy::too_many_arguments)]
@@ -442,6 +463,7 @@ fn resolve_import_type<'arena>(
     module_registry: Option<&Arc<ModuleRegistry>>,
     module_resolver: Option<&Arc<ModuleResolver>>,
     current_module_id: Option<&ModuleId>,
+    lazy_callback: Option<&dyn LazyTypeCheckCallback>,
     diagnostic_handler: &Arc<dyn DiagnosticHandler>,
 ) -> Result<Type<'arena>, TypeCheckError> {
     if let (Some(registry), Some(resolver), Some(current_id)) =
@@ -452,14 +474,77 @@ fn resolve_import_type<'arena>(
                 // Track dependency
                 module_dependencies.push(source_module_id.path().to_path_buf());
 
+                // Try to get exports
                 match registry.get_exports(&source_module_id) {
                     Ok(source_exports) => {
                         if let Some(exported_sym) = source_exports.get_named(symbol_name) {
                             return Ok(exported_sym.symbol.typ.clone());
+                        } else {
+                            // Export doesn't exist
+                            let error = ModuleError::ExportNotFound {
+                                module_id: source_module_id.clone(),
+                                export_name: symbol_name.to_string(),
+                            };
+                            return Err(TypeCheckError::new(error.to_string(), span));
                         }
                     }
-                    Err(_) => {
-                        // Module exists but exports not available yet
+                    Err(ModuleError::NotCompiled { id }) => {
+                        // Module exists but not compiled yet - attempt lazy type-checking
+                        if let Some(callback) = lazy_callback {
+                            // Check recursion depth to prevent infinite loops
+                            let current_depth = registry
+                                .get_type_check_depth(&id)
+                                .unwrap_or(0);
+                            if current_depth > MAX_LAZY_DEPTH {
+                                let error = ModuleError::TypeCheckInProgress {
+                                    module: id.clone(),
+                                    depth: current_depth,
+                                    max_depth: MAX_LAZY_DEPTH,
+                                };
+                                return Err(TypeCheckError::new(error.to_string(), span));
+                            }
+
+                            // Increment depth for this module
+                            let _ = registry.increment_type_check_depth(&id);
+
+                            // Trigger type-checking via callback
+                            let check_result = callback.type_check_dependency(&id);
+
+                            // Decrement depth
+                            let _ = registry.decrement_type_check_depth(&id);
+
+                            // If type-checking failed, propagate error
+                            check_result
+                                .map_err(|e| TypeCheckError::new(e.to_string(), span))?;
+
+                            // Retry export lookup after type-checking
+                            match registry.get_exports(&source_module_id) {
+                                Ok(source_exports) => {
+                                    if let Some(exported_sym) =
+                                        source_exports.get_named(symbol_name)
+                                    {
+                                        return Ok(exported_sym.symbol.typ.clone());
+                                    } else {
+                                        let error = ModuleError::ExportNotFound {
+                                            module_id: source_module_id.clone(),
+                                            export_name: symbol_name.to_string(),
+                                        };
+                                        return Err(TypeCheckError::new(error.to_string(), span));
+                                    }
+                                }
+                                Err(e) => {
+                                    return Err(TypeCheckError::new(e.to_string(), span));
+                                }
+                            }
+                        } else {
+                            // No callback provided - fail with proper error
+                            let error = ModuleError::NotCompiled { id };
+                            return Err(TypeCheckError::new(error.to_string(), span));
+                        }
+                    }
+                    Err(e) => {
+                        // Other errors
+                        return Err(TypeCheckError::new(e.to_string(), span));
                     }
                 }
             }
@@ -468,6 +553,11 @@ fn resolve_import_type<'arena>(
                     span,
                     &format!("Failed to resolve module '{}': {}", source, e),
                 );
+                let error = ModuleError::InvalidPath {
+                    source: source.to_string(),
+                    reason: e.to_string(),
+                };
+                return Err(TypeCheckError::new(error.to_string(), span));
             }
         }
     } else {
@@ -478,10 +568,12 @@ fn resolve_import_type<'arena>(
                 source
             ),
         );
+        let error = ModuleError::NotFound {
+            source: source.to_string(),
+            searched_paths: Vec::new(),
+        };
+        return Err(TypeCheckError::new(error.to_string(), span));
     }
-
-    // Fallback: return Unknown type
-    Ok(Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span))
 }
 
 #[cfg(test)]
@@ -556,6 +648,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             &handler,
         );
         assert!(result.is_ok());
@@ -575,15 +668,11 @@ mod tests {
             None,
             None,
             None,
+            None,
             &handler,
         );
-        // Should return Unknown type when no resolver configured
-        assert!(result.is_ok());
-        let resolved_type = result.unwrap();
-        assert!(matches!(
-            resolved_type.kind,
-            TypeKind::Primitive(PrimitiveType::Unknown)
-        ));
+        // Should return error when no resolver configured
+        assert!(result.is_err());
     }
 
     #[test]
@@ -622,9 +711,11 @@ mod tests {
             None,
             None,
             None,
+            None,
             &handler,
         );
-        assert!(result.is_ok());
+        // Should fail because no module registry/resolver and no lazy callback
+        assert!(result.is_err());
     }
 
     #[test]
@@ -652,6 +743,7 @@ mod tests {
             &mut access_control,
             &interner,
             &mut module_dependencies,
+            None,
             None,
             None,
             None,

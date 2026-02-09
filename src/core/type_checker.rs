@@ -2780,6 +2780,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         import: &ImportDeclaration<'arena>,
     ) -> Result<(), TypeCheckError> {
         // Delegate to module_phase for import processing
+        // Note: lazy_callback is None for now - will be implemented in CLI integration (Step 7)
         phases::module_phase::check_import_statement(
             import,
             &mut self.symbol_table,
@@ -2790,6 +2791,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             self.module_registry.as_ref(),
             self.module_resolver.as_ref(),
             self.current_module_id.as_ref(),
+            None,
             &self.diagnostic_handler,
         )
     }

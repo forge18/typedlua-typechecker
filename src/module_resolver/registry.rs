@@ -94,12 +94,15 @@ impl ExportedSymbol {
 #[derive(Debug)]
 pub struct ModuleRegistry {
     modules: RwLock<FxHashMap<ModuleId, CompiledModule>>,
+    /// Track lazy type-checking depth to prevent infinite recursion
+    type_check_depth: RwLock<FxHashMap<ModuleId, usize>>,
 }
 
 impl ModuleRegistry {
     pub fn new() -> Self {
         Self {
             modules: RwLock::new(FxHashMap::default()),
+            type_check_depth: RwLock::new(FxHashMap::default()),
         }
     }
 
@@ -207,6 +210,42 @@ impl ModuleRegistry {
         let module = self.get_module(id)?;
         Ok(module.status)
     }
+
+    /// Increment the type-check depth for a module (tracks lazy resolution recursion)
+    pub fn increment_type_check_depth(&self, id: &ModuleId) -> Result<usize, ModuleError> {
+        let mut depths = self.type_check_depth.write().unwrap();
+        let new_depth = depths.get(id).copied().unwrap_or(0) + 1;
+        depths.insert(id.clone(), new_depth);
+        Ok(new_depth)
+    }
+
+    /// Decrement the type-check depth for a module
+    pub fn decrement_type_check_depth(&self, id: &ModuleId) -> Result<(), ModuleError> {
+        let mut depths = self.type_check_depth.write().unwrap();
+        if let Some(depth) = depths.get_mut(id) {
+            if *depth > 0 {
+                *depth -= 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the current type-check depth for a module
+    pub fn get_type_check_depth(&self, id: &ModuleId) -> Result<usize, ModuleError> {
+        let depths = self.type_check_depth.read().unwrap();
+        Ok(depths.get(id).copied().unwrap_or(0))
+    }
+
+    /// Check if a module is ready for type-checking (all dependencies have exports available)
+    pub fn is_ready_for_type_checking(&self, id: &ModuleId) -> Result<bool, ModuleError> {
+        let module = self.get_module(id)?;
+        // A module is ready if it exists but hasn't been fully type-checked yet
+        // The caller is responsible for ensuring dependencies are checked first
+        Ok(matches!(
+            module.status,
+            ModuleStatus::Parsed | ModuleStatus::ExportsExtracted
+        ))
+    }
 }
 
 impl Default for ModuleRegistry {
@@ -312,5 +351,56 @@ mod tests {
         // Verify exports
         let named_export = registry.get_named_export(&id, "foo").unwrap();
         assert_eq!(named_export.symbol.name, "foo");
+    }
+
+    #[test]
+    fn test_type_check_depth_tracking() {
+        let registry = ModuleRegistry::new();
+        let id = ModuleId::new(PathBuf::from("test.tl"));
+
+        // Initial depth should be 0
+        assert_eq!(registry.get_type_check_depth(&id).unwrap(), 0);
+
+        // Increment depth
+        let depth1 = registry.increment_type_check_depth(&id).unwrap();
+        assert_eq!(depth1, 1);
+        assert_eq!(registry.get_type_check_depth(&id).unwrap(), 1);
+
+        // Increment again
+        let depth2 = registry.increment_type_check_depth(&id).unwrap();
+        assert_eq!(depth2, 2);
+        assert_eq!(registry.get_type_check_depth(&id).unwrap(), 2);
+
+        // Decrement depth
+        registry.decrement_type_check_depth(&id).unwrap();
+        assert_eq!(registry.get_type_check_depth(&id).unwrap(), 1);
+
+        // Decrement again
+        registry.decrement_type_check_depth(&id).unwrap();
+        assert_eq!(registry.get_type_check_depth(&id).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_is_ready_for_type_checking() {
+        let registry = ModuleRegistry::new();
+        let id = ModuleId::new(PathBuf::from("test.tl"));
+        let symbol_table = Arc::new(SymbolTable::new());
+
+        // Register as parsed
+        registry.register_parsed(id.clone(), symbol_table);
+        assert!(registry.is_ready_for_type_checking(&id).unwrap());
+
+        // Add exports
+        let mut exports = ModuleExports::new();
+        exports.add_named(
+            "foo".to_string(),
+            ExportedSymbol::new(make_test_symbol("foo"), false),
+        );
+        registry.register_exports(&id, exports).unwrap();
+        assert!(registry.is_ready_for_type_checking(&id).unwrap());
+
+        // Mark as checked
+        registry.mark_checked(&id).unwrap();
+        assert!(!registry.is_ready_for_type_checking(&id).unwrap());
     }
 }
