@@ -22,24 +22,27 @@ pub const REFLECTION: &str = include_str!("reflection.d.tl");
 
 /// Get the appropriate stdlib content based on Lua version
 pub fn get_stdlib(version: LuaVersion) -> &'static str {
-    match version {
+    match version.effective() {
         LuaVersion::Lua51 => LUA51,
         LuaVersion::Lua52 => LUA52,
         LuaVersion::Lua53 => LUA53,
         LuaVersion::Lua54 => LUA54,
+        LuaVersion::Auto => unreachable!("effective() should have resolved Auto"),
     }
 }
 
 /// Get all stdlib sources (builtins + version-specific + reflection)
 pub fn get_all_stdlib(version: LuaVersion) -> Vec<(&'static str, &'static str)> {
+    let effective_version = version.effective();
     vec![
         ("builtins.d.tl", BUILTINS),
         (
-            match version {
+            match effective_version {
                 LuaVersion::Lua51 => "lua51.d.tl",
                 LuaVersion::Lua52 => "lua52.d.tl",
                 LuaVersion::Lua53 => "lua53.d.tl",
                 LuaVersion::Lua54 => "lua54.d.tl",
+                LuaVersion::Auto => unreachable!("effective() should have resolved Auto"),
             },
             get_stdlib(version),
         ),

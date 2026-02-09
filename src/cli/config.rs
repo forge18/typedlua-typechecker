@@ -10,8 +10,46 @@ pub enum LuaVersion {
     #[serde(rename = "5.3")]
     Lua53,
     #[serde(rename = "5.4")]
-    #[default]
     Lua54,
+    #[serde(rename = "auto")]
+    #[default]
+    Auto,
+}
+
+impl LuaVersion {
+    /// Detect Lua version from system (runs `lua -v`)
+    pub fn detect() -> Self {
+        use std::process::Command;
+
+        // Try to run `lua -v`
+        if let Ok(output) = Command::new("lua").arg("-v").output() {
+            if output.status.success() {
+                let version_output = String::from_utf8_lossy(&output.stdout);
+
+                // Parse version from output like "Lua 5.4.6  Copyright (C) 1994-2023 Lua.org, PUC-Rio"
+                if version_output.contains("5.1") {
+                    return LuaVersion::Lua51;
+                } else if version_output.contains("5.2") {
+                    return LuaVersion::Lua52;
+                } else if version_output.contains("5.3") {
+                    return LuaVersion::Lua53;
+                } else if version_output.contains("5.4") {
+                    return LuaVersion::Lua54;
+                }
+            }
+        }
+
+        // Fallback to 5.4 if detection fails
+        LuaVersion::Lua54
+    }
+
+    /// Resolve Auto to a concrete Lua version
+    pub fn effective(self) -> Self {
+        match self {
+            LuaVersion::Auto => Self::detect(),
+            other => other,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -37,20 +75,19 @@ pub enum ModuleMode {
 }
 
 /// Optimization level for code generation
-/// Auto mode defaults to O1 in dev mode, O2 in release mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum OptimizationLevel {
-    /// No optimizations - fastest compilation
-    O0,
-    /// Basic optimizations - safe transformations (constant folding, DCE, etc.)
-    O1,
-    /// Standard optimizations - includes function inlining
-    O2,
-    /// Aggressive optimizations - may increase compile time
-    O3,
+    /// No optimizations - fastest compilation (O0)
+    None,
+    /// Basic optimizations - safe transformations (O1: constant folding, DCE, etc.)
+    Minimal,
+    /// Standard optimizations (O2: includes function inlining, loop opts, string concat)
+    Moderate,
+    /// Aggressive optimizations (O3: whole-program analysis, devirtualization, generic specialization)
+    Aggressive,
     /// Auto-detect based on build profile (default)
-    /// O1 for debug/dev builds, O2 for release builds
+    /// Minimal for debug builds, Moderate for release builds
     #[default]
     Auto,
 }
@@ -71,24 +108,19 @@ pub enum OutputFormat {
 impl OptimizationLevel {
     /// Resolve Auto to an actual optimization level based on build profile
     #[cfg(debug_assertions)]
-    pub fn resolved(self) -> Self {
+    pub fn effective(self) -> Self {
         match self {
-            OptimizationLevel::Auto => OptimizationLevel::O1,
+            OptimizationLevel::Auto => OptimizationLevel::Minimal,
             other => other,
         }
     }
 
     #[cfg(not(debug_assertions))]
-    pub fn resolved(self) -> Self {
+    pub fn effective(self) -> Self {
         match self {
-            OptimizationLevel::Auto => OptimizationLevel::O2,
+            OptimizationLevel::Auto => OptimizationLevel::Moderate,
             other => other,
         }
-    }
-
-    /// Get the effective optimization level for this configuration
-    pub fn effective(&self) -> OptimizationLevel {
-        self.resolved()
     }
 }
 
@@ -163,6 +195,10 @@ pub struct CompilerOptions {
     /// Output format for generated Lua code (default: readable)
     #[serde(default)]
     pub output_format: OutputFormat,
+
+    /// Optimization level for code generation (default: minimal)
+    #[serde(default)]
+    pub optimization_level: OptimizationLevel,
 }
 
 fn default_true() -> bool {
@@ -197,6 +233,7 @@ impl Default for CompilerOptions {
             module_paths: default_module_paths(),
             enforce_namespace_path: false,
             output_format: OutputFormat::Readable,
+            optimization_level: OptimizationLevel::Auto,
         }
     }
 }
@@ -305,6 +342,9 @@ impl CompilerConfig {
         if let Some(output_format) = overrides.output_format {
             self.compiler_options.output_format = output_format;
         }
+        if let Some(optimization_level) = overrides.optimization_level {
+            self.compiler_options.optimization_level = optimization_level;
+        }
     }
 }
 
@@ -329,6 +369,7 @@ pub struct CliOverrides {
     pub module_paths: Option<Vec<String>>,
     pub enforce_namespace_path: Option<bool>,
     pub output_format: Option<OutputFormat>,
+    pub optimization_level: Option<OptimizationLevel>,
 }
 
 #[cfg(test)]
