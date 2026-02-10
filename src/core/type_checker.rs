@@ -1261,6 +1261,30 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             "Checking class declaration"
         );
 
+        // Handle forward declarations: register class name for mutual references
+        // but skip member and inheritance processing since forward declarations are minimal
+        if class_decl.is_forward_declaration {
+            debug!("Processing forward declaration for class: {}", class_name);
+
+            // Register class symbol for forward references with Primitive::Never type
+            // The actual type will be filled in when the full class declaration is processed
+            let class_type = Type::new(
+                TypeKind::Primitive(PrimitiveType::Never),
+                class_decl.span,
+            );
+
+            let symbol = Symbol::new(
+                class_name.clone(),
+                SymbolKind::Class,
+                class_type,
+                class_decl.span,
+            );
+            self.symbol_table.declare(symbol)
+                .map_err(|e| TypeCheckError::new(e, class_decl.span))?;
+
+            return Ok(());
+        }
+
         // Check decorators
         self.check_decorators(class_decl.decorators)?;
 
