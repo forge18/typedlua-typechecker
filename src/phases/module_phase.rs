@@ -964,6 +964,7 @@ mod tests {
         let program = luanext_parser::ast::Program {
             statements: &[],
             span: Span::new(0, 0, 0, 0),
+            statement_ranges: None,
         };
         let interner = luanext_parser::string_interner::StringInterner::new();
         let symbol_table = crate::utils::symbol_table::SymbolTable::new();
@@ -1001,6 +1002,7 @@ mod tests {
         let program = luanext_parser::ast::Program {
             statements: &[],
             span,
+            statement_ranges: None,
         };
 
         let handler: Arc<dyn DiagnosticHandler> =
@@ -1170,6 +1172,7 @@ mod tests {
         let program = luanext_parser::ast::Program {
             statements: &[],
             span,
+            statement_ranges: None,
         };
 
         let handler: Arc<dyn DiagnosticHandler> =

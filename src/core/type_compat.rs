@@ -172,6 +172,22 @@ impl TypeCompatibility {
                 }
             }
 
+            // Primitive types
+            (TypeKind::Primitive(s), TypeKind::Primitive(t)) => {
+                Self::is_primitive_assignable(*s, *t)
+            }
+
+            // Literal types
+            (TypeKind::Literal(s_lit), TypeKind::Literal(t_lit)) => s_lit == t_lit,
+
+            // Literal to primitive
+            (TypeKind::Literal(lit), TypeKind::Primitive(prim)) => {
+                Self::is_literal_assignable_to_primitive(lit, *prim)
+            }
+
+            // Primitive to literal (reverse direction - primitive nil can satisfy literal nil)
+            (TypeKind::Primitive(PrimitiveType::Nil), TypeKind::Literal(Literal::Nil)) => true,
+
             // For all other cases, delegate to the standard recursive check
             _ => Self::is_assignable_recursive(source, target, visited),
         }
