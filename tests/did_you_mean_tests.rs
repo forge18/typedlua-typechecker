@@ -60,14 +60,14 @@ fn test_property_not_found_suggests_similar() {
 #[test]
 fn test_multiple_candidates_returns_closest() {
     let candidates = vec![
-        "userName".to_string(),
-        "userNam".to_string(),   // distance 1 from "userNme"
+        "userName".to_string(),  // distance 1 from "userNme" (case-insensitive)
+        "userNam".to_string(),   // distance 2 from "userNme" (case-insensitive)
         "userEmail".to_string(),
     ];
 
-    // Should suggest the closest match
+    // "userName" is closest: case-insensitive "usernme" → "username" = 1 edit
     let suggestion = fuzzy::suggest_similar("userNme", &candidates);
-    assert_eq!(suggestion, Some("userNam".to_string()));
+    assert_eq!(suggestion, Some("userName".to_string()));
 }
 
 #[test]
