@@ -1,22 +1,23 @@
+use bumpalo::Bump;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use luanext_parser::{Lexer, Parser, StringInterner};
 use std::sync::Arc;
-use typedlua_parser::lexer::Lexer;
-use typedlua_parser::parser::Parser;
-use typedlua_parser::string_interner::StringInterner;
 
 use luanext_typechecker::{cli::diagnostics::CollectingDiagnosticHandler, TypeChecker};
 
 fn parse_and_check(code: &str) {
+    let arena = Bump::new();
     let handler = Arc::new(CollectingDiagnosticHandler::new());
     let (interner, common) = StringInterner::new_with_common_identifiers();
     let mut lexer = Lexer::new(code, handler.clone(), &interner);
     let tokens = lexer.tokenize().expect("Lexing failed");
-    let mut parser = Parser::new(tokens, handler.clone(), &interner, &common);
-    let mut program = parser.parse().expect("Parsing failed");
-    let mut checker = TypeChecker::new(handler.clone(), &interner, &common)
+    let mut parser = Parser::new(tokens, handler.clone(), &interner, &common, &arena);
+    let program = parser.parse().expect("Parsing failed");
+    let mut checker = TypeChecker::new(handler.clone(), &interner, &common, &arena)
         .with_stdlib()
         .unwrap();
-    black_box(checker.check_program(&mut program).unwrap());
+    checker.check_program(&program).unwrap();
+    black_box(());
 }
 
 fn generate_generic_chain(depth: usize) -> String {

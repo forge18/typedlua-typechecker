@@ -83,7 +83,7 @@ impl<'a> MultiModuleTestHarness<'a> {
         // Type-check each module individually
         // Note: Cross-file imports will be marked as Unknown types at this stage
         // since module resolution requires ModuleRegistry population at CLI level
-        for (_name, program) in &self.modules {
+        for program in self.modules.values() {
             let mut type_checker = TypeChecker::new(
                 handler.clone(),
                 &self.interner,

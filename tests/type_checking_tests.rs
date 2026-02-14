@@ -2,7 +2,6 @@ use luanext_parser::lexer::Lexer;
 use luanext_parser::parser::Parser;
 use luanext_typechecker::cli::diagnostics::CollectingDiagnosticHandler;
 use luanext_typechecker::{TypeCheckError, TypeChecker};
-use std::path::Path;
 use std::sync::Arc;
 
 fn parse_and_check(source: &str) -> Result<(), TypeCheckError> {

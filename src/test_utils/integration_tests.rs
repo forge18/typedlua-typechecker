@@ -39,8 +39,8 @@ fn test_di_container_with_real_components() {
         .unwrap();
 
     // Verify file system works
-    assert!(fs.exists(&Path::new("test.lua")));
-    let content = fs.read_file(&Path::new("test.lua")).unwrap();
+    assert!(fs.exists(Path::new("test.lua")));
+    let content = fs.read_file(Path::new("test.lua")).unwrap();
     assert_eq!(content, "local x = 5");
 
     // Verify diagnostics work

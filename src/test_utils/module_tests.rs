@@ -29,24 +29,24 @@ fn test_file_system_with_di() {
         .unwrap();
 
     // Test reading files
-    let config_content = fs.read_file(&Path::new("config.lua")).unwrap();
+    let config_content = fs.read_file(Path::new("config.lua")).unwrap();
     assert!(config_content.contains("version"));
 
-    let utils_content = fs.read_file(&Path::new("utils.lua")).unwrap();
+    let utils_content = fs.read_file(Path::new("utils.lua")).unwrap();
     assert!(utils_content.contains("helper"));
 
     // Test file existence
-    assert!(fs.exists(&Path::new("config.lua")));
-    assert!(!fs.exists(&Path::new("nonexistent.lua")));
+    assert!(fs.exists(Path::new("config.lua")));
+    assert!(!fs.exists(Path::new("nonexistent.lua")));
 
     // Test path resolution
-    let resolved = fs.resolve_path(&Path::new("/base"), "sub/dir");
+    let resolved = fs.resolve_path(Path::new("/base"), "sub/dir");
     assert_eq!(resolved, Path::new("/base/sub/dir"));
 
     // Test writing files
-    fs.write_file(&Path::new("new.lua"), "local x = 1").unwrap();
-    assert!(fs.exists(&Path::new("new.lua")));
-    let new_content = fs.read_file(&Path::new("new.lua")).unwrap();
+    fs.write_file(Path::new("new.lua"), "local x = 1").unwrap();
+    assert!(fs.exists(Path::new("new.lua")));
+    let new_content = fs.read_file(Path::new("new.lua")).unwrap();
     assert_eq!(new_content, "local x = 1");
 }
 
@@ -88,11 +88,11 @@ fn test_integration_file_system_and_diagnostics() {
     let mut container = DiContainer::new();
 
     // Setup complete mock environment - create mocks first, then wrap in Arc for sharing
-    let mut mock_fs = MockFileSystem::new();
+    let mock_fs = MockFileSystem::new();
     mock_fs.add_file("main.lua", "print('hello')");
     mock_fs.add_file("lib.lua", "local function lib() return true end");
 
-    let mut mock_diagnostics = MockDiagnosticHandler::new();
+    let mock_diagnostics = MockDiagnosticHandler::new();
 
     let fs_ptr = Arc::new(mock_fs);
     let diagnostics_ptr = Arc::new(mock_diagnostics);
@@ -116,11 +116,11 @@ fn test_integration_file_system_and_diagnostics() {
         .unwrap();
 
     // Test integrated functionality
-    assert!(fs.exists(&Path::new("main.lua")));
-    assert!(fs.exists(&Path::new("lib.lua")));
+    assert!(fs.exists(Path::new("main.lua")));
+    assert!(fs.exists(Path::new("lib.lua")));
 
     // Read and verify content
-    let main_content = fs.read_file(&Path::new("main.lua")).unwrap();
+    let main_content = fs.read_file(Path::new("main.lua")).unwrap();
     assert_eq!(main_content, "print('hello')");
 
     // Test diagnostics

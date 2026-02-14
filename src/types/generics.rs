@@ -1175,7 +1175,7 @@ mod tests {
         use luanext_parser::ast::pattern::Pattern;
         use luanext_parser::ast::statement::Parameter;
 
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -1335,7 +1335,7 @@ mod tests {
 
     #[test]
     fn test_build_substitutions_success() {
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -1370,7 +1370,7 @@ mod tests {
 
     #[test]
     fn test_build_substitutions_wrong_count() {
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -1685,7 +1685,7 @@ mod tests {
         use luanext_parser::ast::pattern::Pattern;
         use luanext_parser::ast::statement::Parameter;
 
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -1833,7 +1833,7 @@ mod tests {
         use luanext_parser::ast::pattern::Pattern;
         use luanext_parser::ast::statement::Parameter;
 
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -2413,7 +2413,7 @@ mod tests {
 
     #[test]
     fn test_types_equal_references() {
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");
@@ -2443,7 +2443,7 @@ mod tests {
         use luanext_parser::ast::pattern::Pattern;
         use luanext_parser::ast::statement::Parameter;
 
-        let arena = Bump::new();
+        let _arena = Bump::new();
         let span = Span::new(0, 0, 0, 0);
         let interner = luanext_parser::string_interner::StringInterner::new();
         let t_id = interner.intern("T");

@@ -76,7 +76,7 @@ impl<'arena> TypeCheckContext<'arena> for TypeCheckContextImpl<'arena> {
 
 #[cfg(test)]
 pub mod test_helpers {
-    use super::*;
+    
 
     // Note: Use proper DI container for creating test contexts
     // This method is commented out due to missing TestDiagnosticHandler

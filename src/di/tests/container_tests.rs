@@ -91,7 +91,7 @@ fn test_singleton_count() {
 
 #[test]
 fn test_container_with_arc_services() {
-    let mut container = DiContainer::new();
+    let _container = DiContainer::new();
     // Skip this test for now - dyn Debug with Arc is complex
     // container.register(
     //     |container: &mut DiContainer| Arc::new(TestService::new()) as Arc<dyn std::fmt::Debug>,

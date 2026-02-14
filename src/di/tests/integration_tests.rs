@@ -27,15 +27,14 @@ fn test_typechecker_di_integration() {
         luanext_parser::string_interner::StringInterner::new_with_common_identifiers();
 
     // Test TypeChecker creation with DI
-    let checker = crate::core::type_checker::TypeChecker::new_with_di(
+    let _checker = crate::core::type_checker::TypeChecker::new_with_di(
         &mut container,
         &interner,
         &common,
         &arena,
     );
 
-    // Verify the checker was created successfully (can't access private fields)
-    assert!(true); // Successful creation is the test
+    // Test passes if creation succeeds without panic
 }
 
 #[test]
@@ -61,10 +60,9 @@ fn test_typechecker_state_di_integration() {
         luanext_parser::string_interner::StringInterner::new_with_common_identifiers();
 
     // Test TypeCheckerState creation with DI
-    let state = crate::state::TypeCheckerState::new_with_di(&mut container, &interner, &common);
+    let _state = crate::state::TypeCheckerState::new_with_di(&mut container, &interner, &common);
 
-    // Verify the state was created successfully (can't access private fields)
-    assert!(true); // Successful creation is the test
+    // Test passes if creation succeeds without panic
 }
 
 #[test]
@@ -77,15 +75,14 @@ fn test_default_container_with_typechecker() {
         luanext_parser::string_interner::StringInterner::new_with_common_identifiers();
 
     // Test that TypeChecker can be created with default container
-    let checker = crate::core::type_checker::TypeChecker::new_with_di(
+    let _checker = crate::core::type_checker::TypeChecker::new_with_di(
         &mut container,
         &interner,
         &common,
         &arena,
     );
 
-    // Verify it works (can't access private fields directly)
-    assert!(true); // Successful creation indicates DI works
+    // Test passes if creation succeeds without panic
 }
 
 #[test]
@@ -156,14 +153,12 @@ fn test_di_container_with_custom_options() {
         luanext_parser::string_interner::StringInterner::new_with_common_identifiers();
 
     // Test TypeChecker with custom options
-    let checker = crate::core::type_checker::TypeChecker::new_with_di(
+    let _checker = crate::core::type_checker::TypeChecker::new_with_di(
         &mut container,
         &interner,
         &common,
         &arena,
     );
 
-    // Verify custom options were used
-    // Can't access private fields directly, but we can verify the checker was created successfully
-    assert!(true); // Placeholder - actual verification happens through successful creation
+    // Test passes if creation succeeds without panic
 }

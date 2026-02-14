@@ -990,7 +990,7 @@ mod tests {
         let interner = luanext_parser::string_interner::StringInterner::new();
         let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
 
-        let name_id = interner.intern("myVar");
+        let _name_id = interner.intern("myVar");
         let symbol = crate::utils::symbol_table::Symbol::new(
             "myVar".to_string(),
             crate::utils::symbol_table::SymbolKind::Variable,
@@ -1160,7 +1160,7 @@ mod tests {
         let interner = luanext_parser::string_interner::StringInterner::new();
         let mut symbol_table = crate::utils::symbol_table::SymbolTable::new();
 
-        let func_name_id = interner.intern("myFunc");
+        let _func_name_id = interner.intern("myFunc");
         let symbol = crate::utils::symbol_table::Symbol::new(
             "myFunc".to_string(),
             crate::utils::symbol_table::SymbolKind::Function,
