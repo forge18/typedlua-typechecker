@@ -298,10 +298,16 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         // PASS 1: Register all function declarations (hoisting)
         // This allows functions to be called before they appear in source order
         // Also handles exported function declarations
-        for statement in program.statements.iter() {
+        eprintln!("[DEBUG] Pass 1: scanning {} statements", program.statements.len());
+        for (i, statement) in program.statements.iter().enumerate() {
+            eprintln!("[DEBUG] Statement {}: discriminant={:?}", i, std::mem::discriminant(statement));
             let func_decl = extract_function_decl(statement);
             if let Some(func_decl) = func_decl {
+                let name = self.interner.resolve(func_decl.name.node);
+                eprintln!("[DEBUG] Found function '{}', registering signature", name);
                 self.register_function_signature(func_decl)?;
+            } else {
+                eprintln!("[DEBUG] Statement {} is NOT a function", i);
             }
         }
 
@@ -560,6 +566,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
                     .new_primitive_type(PrimitiveType::Unknown, param.span)
             };
 
+            eprintln!("[DEBUG] About to declare parameter pattern: {:?}", param.pattern);
             self.declare_pattern(
                 &param.pattern,
                 param_type,

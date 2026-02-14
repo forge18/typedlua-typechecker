@@ -212,7 +212,15 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 self.infer_unary_op(*op, &operand_type, span)
             }
 
-            ExpressionKind::Call(callee, args, _stored_type_args) => {
+            ExpressionKind::Call(callee, args, stored_type_args) => {
+                // Check if this is an assertType intrinsic call
+                if let ExpressionKind::Identifier(name_id) = &callee.kind {
+                    let name = self.interner.resolve(*name_id);
+                    if name == "assertType" {
+                        return self.check_assert_type_intrinsic(args, *stored_type_args, span);
+                    }
+                }
+
                 let callee_type = self.infer_expression(callee)?;
 
                 // Note: We can no longer mutate stored_type_args since AST is arena-allocated.
@@ -2499,6 +2507,100 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
             let return_types = self.arena.alloc_slice_fill_iter(return_types);
             Ok(Some(Type::new(TypeKind::Union(return_types), block.span)))
         }
+    }
+
+    /// Check the assertType<T>(value) intrinsic function call
+    ///
+    /// Validates:
+    /// - Exactly one type argument provided
+    /// - Exactly one value argument provided
+    /// - Type argument is a checkable type (not generic type parameter)
+    ///
+    /// Returns the type argument T as the result type
+    fn check_assert_type_intrinsic(
+        &mut self,
+        args: &[Argument<'arena>],
+        type_args: Option<&'arena [Type<'arena>]>,
+        span: Span,
+    ) -> Result<Type<'arena>, TypeCheckError> {
+        // Validate exactly one type argument
+        let type_arg = match type_args {
+            None => {
+                return Err(TypeCheckError::new(
+                    "assertType requires exactly one type argument (e.g., assertType<string>(value))".to_string(),
+                    span,
+                ));
+            }
+            Some(type_args) if type_args.is_empty() => {
+                return Err(TypeCheckError::new(
+                    "assertType requires exactly one type argument (e.g., assertType<string>(value))".to_string(),
+                    span,
+                ));
+            }
+            Some(type_args) if type_args.len() > 1 => {
+                return Err(TypeCheckError::new(
+                    format!("assertType expects exactly one type argument but received {}", type_args.len()),
+                    span,
+                ));
+            }
+            Some(type_args) => &type_args[0],
+        };
+
+        // Validate exactly one value argument
+        if args.is_empty() {
+            return Err(TypeCheckError::new(
+                "assertType requires exactly one argument (e.g., assertType<string>(value))".to_string(),
+                span,
+            ));
+        }
+        if args.len() > 1 {
+            return Err(TypeCheckError::new(
+                format!("assertType expects exactly one argument but received {}", args.len()),
+                span,
+            ));
+        }
+
+        // Validate the type argument is checkable (not a bare generic type parameter)
+        // Allow: primitives, classes, interfaces, unions, optionals, literals, etc.
+        // Disallow: bare type parameters (e.g., T in a generic function)
+        if let TypeKind::Reference(type_ref) = &type_arg.kind {
+            let type_name = self.interner.resolve(type_ref.name.node);
+            // Check if this is a type parameter by looking it up in type_env
+            // If it's not found in type_env, it might be a type parameter from a generic function
+            // For now, we'll allow it through - runtime validation will use Unknown for type parameters
+            // TODO: In a future phase, we could track type parameters more explicitly
+            if self.type_env.lookup_type(&type_name).is_none() {
+                // Check if it's a class or interface via symbol table
+                if let Some(symbol) = self.symbol_table.lookup(&type_name) {
+                    match symbol.kind {
+                        crate::utils::symbol_table::SymbolKind::Class
+                        | crate::utils::symbol_table::SymbolKind::Interface => {
+                            // OK - it's a class or interface
+                        }
+                        _ => {
+                            return Err(TypeCheckError::new(
+                                format!("assertType cannot validate type parameter '{}' at runtime. Use a concrete type instead.", type_name),
+                                span,
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        // Type-check the value argument to ensure it's valid
+        let _value_type = self.infer_expression(&args[0].value)?;
+
+        // Narrow the argument variable if it's an identifier
+        // This enables: assertType<string>(x); x.length // x is now string
+        if let ExpressionKind::Identifier(var_name) = &args[0].value.kind {
+            self.narrowing_context
+                .set_narrowed_type(*var_name, type_arg.clone());
+        }
+
+        // The return type is the type argument T
+        // This enables type narrowing: after assertType<string>(x), x is known to be string
+        Ok(type_arg.clone())
     }
 }
 
