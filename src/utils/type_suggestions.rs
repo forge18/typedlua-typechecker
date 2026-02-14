@@ -1,11 +1,10 @@
+use crate::cli::diagnostics::DiagnosticSuggestion;
 /// Type conversion suggestions for error messages
 ///
 /// This module provides contextual suggestions for type mismatches, helping users
 /// fix type errors with actionable recommendations.
-
 use luanext_parser::ast::types::{PrimitiveType, Type, TypeKind};
 use luanext_parser::span::Span;
-use crate::cli::diagnostics::DiagnosticSuggestion;
 
 /// Suggest type conversions for common type mismatches
 ///
@@ -31,7 +30,9 @@ pub fn suggest_type_conversion(
     if let (TypeKind::Primitive(actual_prim), TypeKind::Primitive(expected_prim)) =
         (&actual.kind, &expected.kind)
     {
-        if let Some(suggestion) = suggest_primitive_conversion(*actual_prim, *expected_prim, expr_span) {
+        if let Some(suggestion) =
+            suggest_primitive_conversion(*actual_prim, *expected_prim, expr_span)
+        {
             suggestions.push(suggestion);
         }
     }
@@ -42,7 +43,7 @@ pub fn suggest_type_conversion(
             // Actual type is already in the union, suggest type guard
             suggestions.push(DiagnosticSuggestion {
                 span: expr_span,
-                replacement: format!("value"), // Placeholder - would need expression text
+                replacement: "value".to_string(), // Placeholder - would need expression text
                 message: "Consider using a type guard to narrow the type".to_string(),
             });
         }
@@ -121,7 +122,9 @@ fn types_match(a: &TypeKind, b: &TypeKind) -> bool {
 /// Check if a type is optional (T | nil)
 fn is_optional_type(ty: &Type) -> bool {
     if let TypeKind::Union(types) = &ty.kind {
-        types.iter().any(|t| matches!(t.kind, TypeKind::Primitive(PrimitiveType::Nil)))
+        types
+            .iter()
+            .any(|t| matches!(t.kind, TypeKind::Primitive(PrimitiveType::Nil)))
     } else {
         false
     }

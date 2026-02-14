@@ -2,7 +2,6 @@
 ///
 /// This module provides Levenshtein distance-based fuzzy matching to suggest
 /// similar names when encountering undefined variables, properties, or modules.
-
 use std::cmp::min;
 
 /// Calculate Levenshtein distance between two strings
@@ -38,14 +37,18 @@ pub fn levenshtein_distance(a: &str, b: &str) -> usize {
         curr_row[0] = i;
 
         for j in 1..=b_len {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
 
             curr_row[j] = min(
                 min(
-                    curr_row[j - 1] + 1,      // insertion
-                    prev_row[j] + 1           // deletion
+                    curr_row[j - 1] + 1, // insertion
+                    prev_row[j] + 1,     // deletion
                 ),
-                prev_row[j - 1] + cost         // substitution
+                prev_row[j - 1] + cost, // substitution
             );
         }
 
@@ -144,7 +147,7 @@ mod tests {
     #[test]
     fn test_one_char_difference() {
         assert_eq!(levenshtein_distance("hello", "hallo"), 1); // substitution
-        assert_eq!(levenshtein_distance("hello", "hell"), 1);  // deletion
+        assert_eq!(levenshtein_distance("hello", "hell"), 1); // deletion
         assert_eq!(levenshtein_distance("hello", "helloo"), 1); // insertion
     }
 
@@ -195,10 +198,7 @@ mod tests {
 
     #[test]
     fn test_find_similar_names_case_mismatch() {
-        let candidates = vec![
-            "username".to_string(),
-            "userId".to_string(),
-        ];
+        let candidates = vec!["username".to_string(), "userId".to_string()];
 
         let matches = find_similar_names("userName", &candidates, 3);
         assert!(!matches.is_empty());
@@ -208,10 +208,7 @@ mod tests {
 
     #[test]
     fn test_find_similar_names_no_match() {
-        let candidates = vec![
-            "foo".to_string(),
-            "bar".to_string(),
-        ];
+        let candidates = vec!["foo".to_string(), "bar".to_string()];
 
         let matches = find_similar_names("verylongname", &candidates, 3);
         assert!(matches.is_empty());
@@ -231,10 +228,7 @@ mod tests {
 
     #[test]
     fn test_suggest_similar_no_match() {
-        let candidates = vec![
-            "foo".to_string(),
-            "bar".to_string(),
-        ];
+        let candidates = vec!["foo".to_string(), "bar".to_string()];
 
         let suggestion = suggest_similar("completelydifferent", &candidates);
         assert_eq!(suggestion, None);
@@ -242,10 +236,7 @@ mod tests {
 
     #[test]
     fn test_suggest_similar_exact_match() {
-        let candidates = vec![
-            "userName".to_string(),
-            "userEmail".to_string(),
-        ];
+        let candidates = vec!["userName".to_string(), "userEmail".to_string()];
 
         let suggestion = suggest_similar("userName", &candidates);
         assert_eq!(suggestion, Some("userName".to_string()));

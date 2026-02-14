@@ -90,6 +90,9 @@ mod tests {
     fn test_type_check_error_with_suggestion() {
         let error = TypeCheckError::new("Undefined variable 'userNme'", Span::new(0, 10, 1, 2))
             .with_suggestion("userName");
-        assert_eq!(format!("{}", error), "Undefined variable 'userNme' at 1:2. Did you mean 'userName'?");
+        assert_eq!(
+            format!("{}", error),
+            "Undefined variable 'userNme' at 1:2. Did you mean 'userName'?"
+        );
     }
 }

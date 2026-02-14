@@ -194,19 +194,20 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                     error!(name = %name_str, "Undefined variable");
 
                     // Collect all visible symbols as candidates for fuzzy matching
-                    let candidates: Vec<String> = self.symbol_table
+                    let candidates: Vec<String> = self
+                        .symbol_table
                         .all_visible_symbols()
                         .keys()
                         .cloned()
                         .collect();
 
-                    let mut error = TypeCheckError::new(
-                        format!("Undefined variable '{}'", name_str),
-                        span,
-                    );
+                    let mut error =
+                        TypeCheckError::new(format!("Undefined variable '{}'", name_str), span);
 
                     // Add "did you mean?" suggestion if a similar name is found
-                    if let Some(suggestion) = crate::utils::fuzzy::suggest_similar(&name_str, &candidates) {
+                    if let Some(suggestion) =
+                        crate::utils::fuzzy::suggest_similar(&name_str, &candidates)
+                    {
                         error = error.with_suggestion(suggestion);
                     }
 
@@ -289,7 +290,8 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                             symbol.typ.clone()
                         } else {
                             // Collect candidates for fuzzy matching
-                            let candidates: Vec<String> = self.symbol_table
+                            let candidates: Vec<String> = self
+                                .symbol_table
                                 .all_visible_symbols()
                                 .keys()
                                 .cloned()
@@ -301,7 +303,9 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                             );
 
                             // Add "did you mean?" suggestion
-                            if let Some(suggestion) = crate::utils::fuzzy::suggest_similar(&name_str, &candidates) {
+                            if let Some(suggestion) =
+                                crate::utils::fuzzy::suggest_similar(&name_str, &candidates)
+                            {
                                 error = error.with_suggestion(suggestion);
                             }
 
@@ -1602,10 +1606,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                         let symbol = Symbol::new(
                             self.interner.resolve(ident.node).to_string(),
                             SymbolKind::Variable,
-                            Type::new(
-                                TypeKind::Primitive(PrimitiveType::String),
-                                ident.span,
-                            ),
+                            Type::new(TypeKind::Primitive(PrimitiveType::String), ident.span),
                             ident.span,
                         );
                         self.symbol_table
@@ -1830,10 +1831,7 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                     if let TemplatePatternPart::Capture(ident) = part {
                         let name = self.interner.resolve(ident.node).to_string();
                         let binding = PatternBinding {
-                            typ: Type::new(
-                                TypeKind::Primitive(PrimitiveType::String),
-                                ident.span,
-                            ),
+                            typ: Type::new(TypeKind::Primitive(PrimitiveType::String), ident.span),
                             span: ident.span,
                         };
                         bindings.bindings.insert(name, binding);
@@ -2279,7 +2277,8 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                 // Template patterns match string types
                 matches!(
                     typ.kind,
-                    TypeKind::Primitive(PrimitiveType::String) | TypeKind::Literal(Literal::String(_))
+                    TypeKind::Primitive(PrimitiveType::String)
+                        | TypeKind::Literal(Literal::String(_))
                 )
             }
         }
@@ -2387,7 +2386,10 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                             }
                         }
                         // No string type found, return primitive string
-                        Ok(Type::new(TypeKind::Primitive(PrimitiveType::String), typ.span))
+                        Ok(Type::new(
+                            TypeKind::Primitive(PrimitiveType::String),
+                            typ.span,
+                        ))
                     }
                     _ => Ok(typ.clone()),
                 }
@@ -2568,7 +2570,10 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
             }
             Some(type_args) if type_args.len() > 1 => {
                 return Err(TypeCheckError::new(
-                    format!("assertType expects exactly one type argument but received {}", type_args.len()),
+                    format!(
+                        "assertType expects exactly one type argument but received {}",
+                        type_args.len()
+                    ),
                     span,
                 ));
             }
@@ -2578,13 +2583,17 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
         // Validate exactly one value argument
         if args.is_empty() {
             return Err(TypeCheckError::new(
-                "assertType requires exactly one argument (e.g., assertType<string>(value))".to_string(),
+                "assertType requires exactly one argument (e.g., assertType<string>(value))"
+                    .to_string(),
                 span,
             ));
         }
         if args.len() > 1 {
             return Err(TypeCheckError::new(
-                format!("assertType expects exactly one argument but received {}", args.len()),
+                format!(
+                    "assertType expects exactly one argument but received {}",
+                    args.len()
+                ),
                 span,
             ));
         }

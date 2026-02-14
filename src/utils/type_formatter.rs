@@ -3,7 +3,6 @@
 /// This module provides functions to format types in a human-readable way,
 /// suitable for error messages. Unlike Debug formatting, this produces clean,
 /// TypeScript-like type representations.
-
 use luanext_parser::ast::{
     expression::Literal,
     pattern::Pattern,
@@ -195,7 +194,10 @@ fn format_index_key_type(key_type: IndexKeyType) -> String {
     }
 }
 
-fn format_parameter(p: &luanext_parser::ast::statement::Parameter, interner: &StringInterner) -> String {
+fn format_parameter(
+    p: &luanext_parser::ast::statement::Parameter,
+    interner: &StringInterner,
+) -> String {
     let param_name = match &p.pattern {
         Pattern::Identifier(ident) => interner.resolve(ident.node).to_string(),
         _ => "_".to_string(), // Fallback for complex patterns
@@ -243,10 +245,7 @@ fn format_literal(lit: &Literal) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use luanext_parser::ast::{
-        types::TypeReference,
-        Spanned,
-    };
+    use luanext_parser::ast::{types::TypeReference, Spanned};
     use luanext_parser::span::Span;
     use luanext_parser::string_interner::StringInterner;
 
@@ -298,7 +297,10 @@ mod tests {
     fn test_format_literal_types() {
         let interner = StringInterner::default();
 
-        let ty = Type::new(TypeKind::Literal(Literal::String("hello".to_string())), make_span());
+        let ty = Type::new(
+            TypeKind::Literal(Literal::String("hello".to_string())),
+            make_span(),
+        );
         assert_eq!(format_type_for_error(&ty, &interner), "\"hello\"");
 
         let ty = Type::new(TypeKind::Literal(Literal::Number(42.0)), make_span());

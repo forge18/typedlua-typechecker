@@ -24,13 +24,11 @@ fn test_assert_type_requires_type_argument() {
 
     let (result, _handler) = parse_and_check(source);
 
-    assert!(
-        result.is_err(),
-        "Expected error for missing type argument"
-    );
+    assert!(result.is_err(), "Expected error for missing type argument");
     if let Err(err) = result {
         assert!(
-            err.to_string().contains("assertType requires exactly one type argument"),
+            err.to_string()
+                .contains("assertType requires exactly one type argument"),
             "Expected specific error message, got: {}",
             err
         );
@@ -43,13 +41,11 @@ fn test_assert_type_requires_value_argument() {
 
     let (result, _handler) = parse_and_check(source);
 
-    assert!(
-        result.is_err(),
-        "Expected error for missing value argument"
-    );
+    assert!(result.is_err(), "Expected error for missing value argument");
     if let Err(err) = result {
         assert!(
-            err.to_string().contains("assertType requires exactly one argument"),
+            err.to_string()
+                .contains("assertType requires exactly one argument"),
             "Expected specific error message, got: {}",
             err
         );
@@ -68,7 +64,8 @@ fn test_assert_type_too_many_type_arguments() {
     );
     if let Err(err) = result {
         assert!(
-            err.to_string().contains("assertType expects exactly one type argument but received 2"),
+            err.to_string()
+                .contains("assertType expects exactly one type argument but received 2"),
             "Expected specific error message, got: {}",
             err
         );
@@ -80,7 +77,11 @@ fn test_assert_type_primitive_string() {
     let source = "const input: unknown = \"hello\"\nconst name = assertType<string>(input)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -88,7 +89,11 @@ fn test_assert_type_primitive_number() {
     let source = "const input: unknown = 42\nconst num = assertType<number>(input)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -96,15 +101,24 @@ fn test_assert_type_primitive_boolean() {
     let source = "const input: unknown = true\nconst flag = assertType<boolean>(input)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
 fn test_assert_type_in_function() {
-    let source = "function parseData(raw: unknown): string {\n    return assertType<string>(raw)\n}";
+    let source =
+        "function parseData(raw: unknown): string {\n    return assertType<string>(raw)\n}";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -112,7 +126,11 @@ fn test_assert_type_union() {
     let source = "const input: unknown = \"hello\"\nconst id = assertType<string | number>(input)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -120,7 +138,11 @@ fn test_assert_type_nullable() {
     let source = "const input: unknown = \"hello\"\nconst name = assertType<string?>(input)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -128,7 +150,11 @@ fn test_assert_type_literal_string() {
     let source = "const status = assertType<\"success\">(\"success\")";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -136,7 +162,11 @@ fn test_assert_type_literal_number() {
     let source = "const code = assertType<404>(404)";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(result.is_ok(), "Type checking should succeed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "Type checking should succeed: {:?}",
+        result.err()
+    );
 }
 
 // ============================================================================
@@ -207,7 +237,8 @@ fn test_simple_function_parameter_access_unknown() {
 #[test]
 fn test_assert_type_basic_narrowing_in_function() {
     // Verify that assertType narrows the variable type within a function
-    let source = "function example(input: unknown): string {\n    return assertType<string>(input)\n}";
+    let source =
+        "function example(input: unknown): string {\n    return assertType<string>(input)\n}";
 
     let (result, _handler) = parse_and_check(source);
     assert!(
@@ -332,7 +363,8 @@ fn test_assert_type_too_many_value_arguments() {
     );
     if let Err(err) = result {
         assert!(
-            err.to_string().contains("assertType expects exactly one argument"),
+            err.to_string()
+                .contains("assertType expects exactly one argument"),
             "Expected specific error message, got: {}",
             err
         );
@@ -344,10 +376,7 @@ fn test_assert_type_no_arguments_at_all() {
     let source = "const x = assertType()";
 
     let (result, _handler) = parse_and_check(source);
-    assert!(
-        result.is_err(),
-        "Expected error for no arguments at all"
-    );
+    assert!(result.is_err(), "Expected error for no arguments at all");
     if let Err(err) = result {
         assert!(
             err.to_string().contains("assertType"),

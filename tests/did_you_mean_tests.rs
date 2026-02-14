@@ -2,7 +2,6 @@
 ///
 /// These tests document the expected behavior once the feature is fully integrated.
 /// Currently, they test the underlying fuzzy matching infrastructure.
-
 use luanext_typechecker::utils::fuzzy;
 
 #[test]
@@ -21,10 +20,7 @@ fn test_undefined_variable_one_char_typo() {
 
 #[test]
 fn test_undefined_variable_case_mismatch() {
-    let candidates = vec![
-        "username".to_string(),
-        "password".to_string(),
-    ];
+    let candidates = vec!["username".to_string(), "password".to_string()];
 
     // User typed "userName" but variable is "username"
     let suggestion = fuzzy::suggest_similar("userName", &candidates);
@@ -33,10 +29,7 @@ fn test_undefined_variable_case_mismatch() {
 
 #[test]
 fn test_undefined_variable_no_close_match() {
-    let candidates = vec![
-        "foo".to_string(),
-        "bar".to_string(),
-    ];
+    let candidates = vec!["foo".to_string(), "bar".to_string()];
 
     // User typed something completely different
     let suggestion = fuzzy::suggest_similar("completelydifferent", &candidates);
@@ -60,8 +53,8 @@ fn test_property_not_found_suggests_similar() {
 #[test]
 fn test_multiple_candidates_returns_closest() {
     let candidates = vec![
-        "userName".to_string(),  // distance 1 from "userNme" (case-insensitive)
-        "userNam".to_string(),   // distance 2 from "userNme" (case-insensitive)
+        "userName".to_string(), // distance 1 from "userNme" (case-insensitive)
+        "userNam".to_string(),  // distance 2 from "userNme" (case-insensitive)
         "userEmail".to_string(),
     ];
 
@@ -86,11 +79,7 @@ fn test_fuzzy_matching_with_common_prefixes() {
 
 #[test]
 fn test_short_variable_names() {
-    let candidates = vec![
-        "x".to_string(),
-        "y".to_string(),
-        "z".to_string(),
-    ];
+    let candidates = vec!["x".to_string(), "y".to_string(), "z".to_string()];
 
     // Even for short names, should suggest if within threshold
     let suggestion = fuzzy::suggest_similar("a", &candidates);
@@ -112,10 +101,7 @@ fn test_long_variable_names() {
 
 #[test]
 fn test_underscore_vs_camel_case() {
-    let candidates = vec![
-        "user_name".to_string(),
-        "user_email".to_string(),
-    ];
+    let candidates = vec!["user_name".to_string(), "user_email".to_string()];
 
     // User uses camelCase when variable is snake_case
     // This should NOT match well (large edit distance)
