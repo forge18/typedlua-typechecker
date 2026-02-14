@@ -434,6 +434,25 @@ pub fn declare_pattern<'arena>(
             }
             Ok(())
         }
+        Pattern::Template(template_pattern) => {
+            use luanext_parser::ast::pattern::TemplatePatternPart;
+            // Declare all captures as string type
+            for part in template_pattern.parts.iter() {
+                if let TemplatePatternPart::Capture(ident) = part {
+                    let string_type = Type::new(TypeKind::Primitive(PrimitiveType::String), span);
+                    let symbol = Symbol::new(
+                        interner.resolve(ident.node).to_string(),
+                        kind,
+                        string_type,
+                        span,
+                    );
+                    symbol_table
+                        .declare(symbol)
+                        .map_err(|e| TypeCheckError::new(e, span))?;
+                }
+            }
+            Ok(())
+        }
     }
 }
 

@@ -1545,6 +1545,39 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
 
                 Ok(())
             }
+            Pattern::Template(template_pattern) => {
+                use luanext_parser::ast::pattern::TemplatePatternPart;
+
+                // Validate matched value is string type
+                if !self.is_string_like_type(expected_type) {
+                    self.diagnostic_handler.error(
+                        template_pattern.span,
+                        &format!(
+                            "Template pattern can only match string values, but found type {:?}",
+                            expected_type.kind
+                        ),
+                    );
+                }
+
+                // Register captures as string type
+                for part in template_pattern.parts.iter() {
+                    if let TemplatePatternPart::Capture(ident) = part {
+                        let symbol = Symbol::new(
+                            self.interner.resolve(ident.node).to_string(),
+                            SymbolKind::Variable,
+                            Type::new(
+                                TypeKind::Primitive(PrimitiveType::String),
+                                ident.span,
+                            ),
+                            ident.span,
+                        );
+                        self.symbol_table
+                            .declare(symbol)
+                            .map_err(|e| TypeCheckError::new(e, ident.span))?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 }
@@ -1567,6 +1600,17 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
             TypeKind::Array(elem) | TypeKind::Nullable(elem) | TypeKind::Parenthesized(elem) => {
                 self.type_has_unresolved_params(elem)
             }
+            _ => false,
+        }
+    }
+
+    /// Check if a type is string-like (string primitive or string literal union)
+    fn is_string_like_type(&self, ty: &Type<'arena>) -> bool {
+        use luanext_parser::ast::expression::Literal;
+        match &ty.kind {
+            TypeKind::Primitive(PrimitiveType::String) => true,
+            TypeKind::Literal(Literal::String(_)) => true,
+            TypeKind::Union(types) => types.iter().all(|t| self.is_string_like_type(t)),
             _ => false,
         }
     }
@@ -1739,6 +1783,24 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                 // For now, just extract from the first alternative
                 if let Some(first) = or_pattern.alternatives.first() {
                     self.extract_pattern_bindings_recursive(first, expected_type, bindings)?;
+                }
+                Ok(())
+            }
+            Pattern::Template(template_pattern) => {
+                use luanext_parser::ast::pattern::TemplatePatternPart;
+                // Extract captures as string type
+                for part in template_pattern.parts.iter() {
+                    if let TemplatePatternPart::Capture(ident) = part {
+                        let name = self.interner.resolve(ident.node).to_string();
+                        let binding = PatternBinding {
+                            typ: Type::new(
+                                TypeKind::Primitive(PrimitiveType::String),
+                                ident.span,
+                            ),
+                            span: ident.span,
+                        };
+                        bindings.bindings.insert(name, binding);
+                    }
                 }
                 Ok(())
             }
@@ -2176,6 +2238,13 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                     .iter()
                     .any(|alt| self.pattern_could_match(alt, typ))
             }
+            Pattern::Template(_) => {
+                // Template patterns match string types
+                matches!(
+                    typ.kind,
+                    TypeKind::Primitive(PrimitiveType::String) | TypeKind::Literal(Literal::String(_))
+                )
+            }
         }
     }
 
@@ -2264,6 +2333,26 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
                     // Different types - return union
                     let types = self.arena.alloc_slice_fill_iter(narrowed_types);
                     Ok(Type::new(TypeKind::Union(types), typ.span))
+                }
+            }
+            Pattern::Template(_) => {
+                // Template patterns narrow to string type
+                // If the type is a union, extract the string component
+                match &typ.kind {
+                    TypeKind::Union(types) => {
+                        for t in types.iter() {
+                            if matches!(
+                                t.kind,
+                                TypeKind::Primitive(PrimitiveType::String)
+                                    | TypeKind::Literal(Literal::String(_))
+                            ) {
+                                return Ok(t.clone());
+                            }
+                        }
+                        // No string type found, return primitive string
+                        Ok(Type::new(TypeKind::Primitive(PrimitiveType::String), typ.span))
+                    }
+                    _ => Ok(typ.clone()),
                 }
             }
         }
