@@ -271,6 +271,22 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
             ExpressionKind::Assignment(target, _op, value) => {
                 debug!("Inferring assignment expression");
 
+                // Check if target is an undefined identifier (new global)
+                let _new_global_name = match &target.kind {
+                    ExpressionKind::Identifier(name) => {
+                        let name_str = self.interner.resolve(*name);
+                        if self.symbol_table.lookup(&name_str).is_none() {
+                            Some(name_str.clone())
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                };
+
+                // For new globals, infer RHS type first, then declare with that type
+                let value_type = self.infer_expression(value)?;
+
                 let target_type = match &target.kind {
                     ExpressionKind::Member(object, member) => {
                         let obj_type = self.infer_expression(object)?;
@@ -289,33 +305,21 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                         if let Some(symbol) = self.symbol_table.lookup(&name_str) {
                             symbol.typ.clone()
                         } else {
-                            // Collect candidates for fuzzy matching
-                            let candidates: Vec<String> = self
-                                .symbol_table
-                                .all_visible_symbols()
-                                .keys()
-                                .cloned()
-                                .collect();
-
-                            let mut error = TypeCheckError::new(
-                                format!("Undefined variable '{}'", name_str),
+                            // In Lua, bare assignment to an undefined variable creates a global
+                            // Declare it with the inferred RHS type
+                            let symbol = Symbol::new(
+                                name_str.clone(),
+                                SymbolKind::Variable,
+                                value_type.clone(),
                                 span,
                             );
+                            let _ = self.symbol_table.declare(symbol);
 
-                            // Add "did you mean?" suggestion
-                            if let Some(suggestion) =
-                                crate::utils::fuzzy::suggest_similar(&name_str, &candidates)
-                            {
-                                error = error.with_suggestion(suggestion);
-                            }
-
-                            return Err(error);
+                            value_type.clone()
                         }
                     }
                     _ => Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span),
                 };
-
-                let value_type = self.infer_expression(value)?;
 
                 if !TypeCompatibility::is_assignable(&value_type, &target_type) {
                     return Err(TypeCheckError::new(
@@ -914,11 +918,11 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 let actual_args = args.len();
                 debug!(actual_args, "Checking function call argument count");
 
-                // Count required parameters (non-optional, non-rest)
+                // Count required parameters (non-optional, non-rest, no default value)
                 let required_params = func_type
                     .parameters
                     .iter()
-                    .filter(|p| !p.is_rest && !p.is_optional)
+                    .filter(|p| !p.is_rest && !p.is_optional && p.default.is_none())
                     .count();
 
                 // Check if the last parameter is a rest parameter
@@ -928,11 +932,11 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                     .map(|p| p.is_rest)
                     .unwrap_or(false);
 
-                // Count optional parameters
+                // Count optional parameters (includes parameters with default values)
                 let optional_params = func_type
                     .parameters
                     .iter()
-                    .filter(|p| p.is_optional && !p.is_rest)
+                    .filter(|p| (p.is_optional || p.default.is_some()) && !p.is_rest)
                     .count();
 
                 let max_params = if has_rest_param {
