@@ -283,6 +283,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// Type check a program
     #[instrument(skip(self, program))]
     pub fn check_program(&mut self, program: &Program<'arena>) -> Result<(), TypeCheckError> {
+
         let span = span!(
             Level::INFO,
             "check_program",
@@ -380,6 +381,7 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             Statement::DeclareType(_) => "DeclareType",
             Statement::DeclareInterface(_) => "DeclareInterface",
             Statement::DeclareConst(_) => "DeclareConst",
+            Statement::MultiAssignment(_) => "MultiAssignment",
         };
 
         span!(Level::DEBUG, "check_statement", kind = stmt_type);
@@ -418,6 +420,16 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
             Statement::Namespace(ns_decl) => self.check_namespace_declaration(ns_decl),
             // Label and Goto (Lua compatibility)
             Statement::Label(_) | Statement::Goto(_) => Ok(()),
+            // Multi-assignment: type-check all targets and values
+            Statement::MultiAssignment(multi) => {
+                for value in multi.values.iter() {
+                    self.infer_expression_type(value)?;
+                }
+                for target in multi.targets.iter() {
+                    self.infer_expression_type(target)?;
+                }
+                Ok(())
+            }
         }
     }
 

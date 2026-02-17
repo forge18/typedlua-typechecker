@@ -121,6 +121,11 @@ impl<'arena> SymbolTable<'arena> {
         }
     }
 
+    /// Get the current scope depth (0 = global scope, >0 = nested scopes)
+    pub fn scope_depth(&self) -> usize {
+        self.scope_stack.len()
+    }
+
     /// Declare a symbol in the current scope
     pub fn declare(&mut self, symbol: Symbol<'arena>) -> Result<(), String> {
         self.current_scope.declare(symbol)

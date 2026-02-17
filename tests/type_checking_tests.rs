@@ -287,3 +287,69 @@ fn test_table_assignment() {
     let result = parse_and_check(source);
     assert!(result.is_ok(), "Table assignment should type check");
 }
+
+#[test]
+fn test_function_param_access_do_end() {
+    // Function body with do/end syntax
+    let source = r#"
+        function add(a: number, b: number): number do
+            return a + b
+        end
+    "#;
+    let result = parse_and_check(source);
+    assert!(result.is_ok(), "Function params should be accessible in do/end body: {:?}", result);
+}
+
+#[test]
+fn test_function_param_access_braces() {
+    // Function body with { } brace syntax
+    let source = r#"
+        function add(a: number, b: number): number {
+            return a + b
+        }
+    "#;
+    let result = parse_and_check(source);
+    assert!(result.is_ok(), "Function params should be accessible in brace body: {:?}", result);
+}
+
+#[test]
+fn test_function_param_access_braces_with_if() {
+    // Function body with { } brace syntax containing if/then/else
+    let source = r#"
+        function process(value: number): string {
+            if value == 0 then
+                return "zero"
+            else
+                return "nonzero"
+            end
+        }
+    "#;
+    let result = parse_and_check(source);
+    assert!(result.is_ok(), "Function params should be accessible in brace body with if: {:?}", result);
+}
+
+#[test]
+fn test_all_variable_declaration_forms() {
+    // Test all 6 variable declaration/assignment forms
+    let source = r#"
+        global x: number = 0
+        x = x + 1
+
+        y: number = 0
+        y = y + 1
+
+        global z: number = 0
+        z = z + 1
+
+        global w = 0
+        w = w + 1
+
+        local a: number = 0
+        a = a + 1
+
+        local b = 0
+        b = b + 1
+    "#;
+    let result = parse_and_check(source);
+    assert!(result.is_ok(), "All variable forms should type check: {:?}", result);
+}
