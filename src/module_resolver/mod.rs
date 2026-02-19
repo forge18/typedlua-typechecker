@@ -73,11 +73,8 @@ pub struct ModuleConfig {
 
 impl ModuleConfig {
     pub fn from_compiler_options(options: &CompilerOptions, base_dir: &Path) -> Self {
-        let path_aliases = PathAliasResolver::new(
-            &options.paths,
-            options.base_url.as_deref(),
-            base_dir,
-        );
+        let path_aliases =
+            PathAliasResolver::new(&options.paths, options.base_url.as_deref(), base_dir);
         Self {
             module_paths: vec![base_dir.to_path_buf(), base_dir.join("lua_modules")],
             lua_file_policy: if options.allow_non_typed_lua {
@@ -474,10 +471,7 @@ mod tests {
         assert!(result.is_err());
     }
 
-    fn make_alias_resolver(
-        fs: Arc<dyn FileSystem>,
-        aliases: &[(&str, &[&str])],
-    ) -> ModuleResolver {
+    fn make_alias_resolver(fs: Arc<dyn FileSystem>, aliases: &[(&str, &[&str])]) -> ModuleResolver {
         let paths: std::collections::HashMap<String, Vec<String>> = aliases
             .iter()
             .map(|(k, v)| (k.to_string(), v.iter().map(|s| s.to_string()).collect()))
@@ -514,8 +508,7 @@ mod tests {
         let fs: Arc<dyn FileSystem> = Arc::new(fs);
 
         let resolver = make_alias_resolver(fs, &[("@/*", &["src/*"])]);
-        let result =
-            resolver.resolve("@/components/Button", Path::new("/project/src/main.tl"));
+        let result = resolver.resolve("@/components/Button", Path::new("/project/src/main.tl"));
         assert!(result.is_ok());
         let id = result.unwrap();
         assert!(id.as_str().contains("Button.tl"));
@@ -538,8 +531,7 @@ mod tests {
     fn test_resolve_alias_not_found() {
         let fs = make_test_fs();
         let resolver = make_alias_resolver(fs, &[("@/*", &["src/*"])]);
-        let result =
-            resolver.resolve("@/nonexistent", Path::new("/project/src/main.tl"));
+        let result = resolver.resolve("@/nonexistent", Path::new("/project/src/main.tl"));
         assert!(result.is_err());
 
         if let Err(ModuleError::AliasNotResolved {
@@ -571,8 +563,7 @@ mod tests {
         let resolver = make_alias_resolver(fs, &[("@std/*", &["custom_std/*"])]);
 
         // @std/ should NOT be treated as an alias (it's a built-in)
-        let result =
-            resolver.resolve("@std/reflection", Path::new("/project/src/main.tl"));
+        let result = resolver.resolve("@std/reflection", Path::new("/project/src/main.tl"));
         // Should fail with NotFound (package resolution), not AliasNotResolved
         assert!(result.is_err());
         if let Err(ModuleError::AliasNotResolved { .. }) = result {

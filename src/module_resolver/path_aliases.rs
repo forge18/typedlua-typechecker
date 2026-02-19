@@ -131,8 +131,7 @@ impl PathAliasResolver {
                         .iter()
                         .map(|r| {
                             if r.has_wildcard {
-                                let resolved =
-                                    format!("{}{}{}", r.prefix, captured, r.suffix);
+                                let resolved = format!("{}{}{}", r.prefix, captured, r.suffix);
                                 self.base_dir.join(resolved)
                             } else {
                                 self.base_dir.join(&r.prefix)
@@ -188,7 +187,10 @@ mod tests {
         let resolver = PathAliasResolver::new(&paths, None, Path::new("/project"));
 
         let result = resolver.resolve_alias("@/components/Button").unwrap();
-        assert_eq!(result, vec![PathBuf::from("/project/src/components/Button")]);
+        assert_eq!(
+            result,
+            vec![PathBuf::from("/project/src/components/Button")]
+        );
     }
 
     #[test]
@@ -270,10 +272,7 @@ mod tests {
         // Exact match for "@utils" (prefix len same, but exact wins because it's checked)
         // Both have prefix "@utils" (len 6), exact is sorted alongside wildcard
         let result = resolver.resolve_alias("@utils").unwrap();
-        assert_eq!(
-            result,
-            vec![PathBuf::from("/project/src/shared/all-utils")]
-        );
+        assert_eq!(result, vec![PathBuf::from("/project/src/shared/all-utils")]);
     }
 
     #[test]
@@ -328,10 +327,7 @@ mod tests {
 
     #[test]
     fn test_matches_alias() {
-        let paths = make_paths(&[
-            ("@/*", &["src/*"]),
-            ("@utils", &["src/shared/utils"]),
-        ]);
+        let paths = make_paths(&[("@/*", &["src/*"]), ("@utils", &["src/shared/utils"])]);
         let resolver = PathAliasResolver::new(&paths, None, Path::new("/project"));
 
         assert!(resolver.matches_alias("@/foo"));

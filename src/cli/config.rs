@@ -503,10 +503,7 @@ compilerOptions:
     "@utils": ["src/shared/utils"]
 "#;
         let config: CompilerConfig = serde_yaml::from_str(yaml).unwrap();
-        assert_eq!(
-            config.compiler_options.base_url,
-            Some(".".to_string())
-        );
+        assert_eq!(config.compiler_options.base_url, Some(".".to_string()));
         assert_eq!(config.compiler_options.paths.len(), 3);
         assert_eq!(
             config.compiler_options.paths.get("@/*"),
@@ -539,10 +536,7 @@ compilerOptions:
         let config: CompilerConfig = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(
             config.compiler_options.paths.get("*"),
-            Some(&vec![
-                "./vendor/*".to_string(),
-                "./types/*".to_string()
-            ])
+            Some(&vec!["./vendor/*".to_string(), "./types/*".to_string()])
         );
     }
 }
