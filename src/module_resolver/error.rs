@@ -67,6 +67,13 @@ pub enum ModuleError {
         module_id: ModuleId,
         symbol_name: String,
     },
+
+    /// Path alias matched but no file found at any resolved path
+    AliasNotResolved {
+        source: String,
+        alias_candidates: Vec<PathBuf>,
+        searched_paths: Vec<PathBuf>,
+    },
 }
 
 impl fmt::Display for ModuleError {
@@ -208,6 +215,26 @@ impl fmt::Display for ModuleError {
                     "  Use 'export type {{ {} }}' if this is a type-only re-export",
                     symbol_name
                 )
+            }
+            ModuleError::AliasNotResolved {
+                source,
+                alias_candidates,
+                searched_paths,
+            } => {
+                writeln!(f, "Cannot resolve path alias '{}'", source)?;
+                if !alias_candidates.is_empty() {
+                    writeln!(f, "  Alias expanded to:")?;
+                    for candidate in alias_candidates {
+                        writeln!(f, "    - {}", candidate.display())?;
+                    }
+                }
+                if !searched_paths.is_empty() {
+                    writeln!(f, "  Searched paths:")?;
+                    for path in searched_paths {
+                        writeln!(f, "    - {}", path.display())?;
+                    }
+                }
+                Ok(())
             }
         }
     }

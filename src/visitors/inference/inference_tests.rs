@@ -3,6 +3,7 @@ mod tests {
     use crate::cli::diagnostics::{CollectingDiagnosticHandler, DiagnosticHandler};
     use crate::core::type_environment::TypeEnvironment;
     use crate::utils::symbol_table::SymbolTable;
+    use crate::visitors::inference::InferenceContext;
     use crate::visitors::{AccessControl, TypeCheckVisitor, TypeInferenceVisitor, TypeInferrer};
     use crate::NarrowingContext;
     use bumpalo::Bump;
@@ -12,6 +13,7 @@ mod tests {
     use luanext_parser::prelude::*;
     use luanext_parser::span::Span;
     use luanext_parser::string_interner::StringInterner;
+    use rustc_hash::FxHashMap;
     use std::sync::Arc;
 
     fn create_test_inferrer<'a, 'arena>(
@@ -23,15 +25,14 @@ mod tests {
         interner: &'a StringInterner,
         diagnostic_handler: &'a Arc<dyn DiagnosticHandler>,
     ) -> TypeInferrer<'a, 'arena> {
-        TypeInferrer::new(
-            arena,
-            symbol_table,
-            type_env,
-            narrowing_context,
+        let class_type_params = Box::leak(Box::new(FxHashMap::default()));
+        let ctx = Box::leak(Box::new(InferenceContext {
             access_control,
             interner,
             diagnostic_handler,
-        )
+            class_type_params,
+        }));
+        TypeInferrer::new(arena, symbol_table, type_env, narrowing_context, ctx)
     }
 
     #[test]
@@ -980,10 +981,10 @@ mod tests {
         let result = inferrer.infer_expression(&expr);
         assert!(result.is_ok());
         let typ = result.unwrap();
-        // In Lua, 'and' returns one of its operands, so type is Unknown
+        // 'and' in boolean context returns Boolean
         assert!(matches!(
             typ.kind,
-            TypeKind::Primitive(PrimitiveType::Unknown)
+            TypeKind::Primitive(PrimitiveType::Boolean)
         ));
     }
 
@@ -1032,10 +1033,10 @@ mod tests {
         let result = inferrer.infer_expression(&expr);
         assert!(result.is_ok());
         let typ = result.unwrap();
-        // In Lua, 'or' returns one of its operands, so type is Unknown
+        // 'or' in boolean context returns Boolean
         assert!(matches!(
             typ.kind,
-            TypeKind::Primitive(PrimitiveType::Unknown)
+            TypeKind::Primitive(PrimitiveType::Boolean)
         ));
     }
 

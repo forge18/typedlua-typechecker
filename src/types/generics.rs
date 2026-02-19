@@ -581,13 +581,11 @@ pub fn instantiate_statement<'arena>(
                 .iter()
                 .map(|e| instantiate_expression(arena, e, substitutions))
                 .collect();
-            Statement::MultiAssignment(
-                luanext_parser::ast::statement::MultiAssignmentStatement {
-                    targets: arena.alloc_slice_fill_iter(targets),
-                    values: arena.alloc_slice_fill_iter(values),
-                    span: multi.span,
-                },
-            )
+            Statement::MultiAssignment(luanext_parser::ast::statement::MultiAssignmentStatement {
+                targets: arena.alloc_slice_fill_iter(targets),
+                values: arena.alloc_slice_fill_iter(values),
+                span: multi.span,
+            })
         }
     }
 }

@@ -297,7 +297,11 @@ fn test_function_param_access_do_end() {
         end
     "#;
     let result = parse_and_check(source);
-    assert!(result.is_ok(), "Function params should be accessible in do/end body: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Function params should be accessible in do/end body: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -309,7 +313,11 @@ fn test_function_param_access_braces() {
         }
     "#;
     let result = parse_and_check(source);
-    assert!(result.is_ok(), "Function params should be accessible in brace body: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Function params should be accessible in brace body: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -325,7 +333,11 @@ fn test_function_param_access_braces_with_if() {
         }
     "#;
     let result = parse_and_check(source);
-    assert!(result.is_ok(), "Function params should be accessible in brace body with if: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "Function params should be accessible in brace body with if: {:?}",
+        result
+    );
 }
 
 #[test]
@@ -351,5 +363,9 @@ fn test_all_variable_declaration_forms() {
         b = b + 1
     "#;
     let result = parse_and_check(source);
-    assert!(result.is_ok(), "All variable forms should type check: {:?}", result);
+    assert!(
+        result.is_ok(),
+        "All variable forms should type check: {:?}",
+        result
+    );
 }

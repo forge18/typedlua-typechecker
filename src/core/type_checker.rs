@@ -283,7 +283,6 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
     /// Type check a program
     #[instrument(skip(self, program))]
     pub fn check_program(&mut self, program: &Program<'arena>) -> Result<(), TypeCheckError> {
-
         let span = span!(
             Level::INFO,
             "check_program",
@@ -2356,14 +2355,18 @@ impl<'a, 'arena> TypeChecker<'a, 'arena> {
         &mut self,
         expr: &Expression<'arena>,
     ) -> Result<Type<'arena>, TypeCheckError> {
+        let ctx = crate::visitors::InferenceContext {
+            access_control: &self.access_control,
+            interner: self.interner,
+            diagnostic_handler: &self.diagnostic_handler,
+            class_type_params: &self.class_type_params,
+        };
         let mut inferrer = TypeInferrer::new(
             self.arena,
             &mut self.symbol_table,
             &mut self.type_env,
             self.narrowing.get_context_mut(),
-            &self.access_control,
-            self.interner,
-            &self.diagnostic_handler,
+            &ctx,
         );
         inferrer.infer_expression(expr)
     }

@@ -121,6 +121,15 @@ pub trait TypeInferenceVisitor<'arena>: TypeCheckVisitor {
 }
 
 /// Type inference implementation
+/// Context for type inference that groups read-only shared state.
+pub struct InferenceContext<'a, 'arena> {
+    pub access_control: &'a AccessControl<'arena>,
+    pub interner: &'a StringInterner,
+    pub diagnostic_handler: &'a Arc<dyn DiagnosticHandler>,
+    pub class_type_params:
+        &'a FxHashMap<String, Vec<luanext_parser::ast::statement::TypeParameter<'arena>>>,
+}
+
 pub struct TypeInferrer<'a, 'arena> {
     arena: &'arena bumpalo::Bump,
     symbol_table: &'a mut SymbolTable<'arena>,
@@ -129,6 +138,8 @@ pub struct TypeInferrer<'a, 'arena> {
     access_control: &'a AccessControl<'arena>,
     interner: &'a StringInterner,
     diagnostic_handler: &'a Arc<dyn DiagnosticHandler>,
+    class_type_params:
+        &'a FxHashMap<String, Vec<luanext_parser::ast::statement::TypeParameter<'arena>>>,
 }
 
 impl<'a, 'arena> TypeInferrer<'a, 'arena> {
@@ -137,18 +148,17 @@ impl<'a, 'arena> TypeInferrer<'a, 'arena> {
         symbol_table: &'a mut SymbolTable<'arena>,
         type_env: &'a mut TypeEnvironment<'arena>,
         narrowing_context: &'a mut super::NarrowingContext<'arena>,
-        access_control: &'a AccessControl<'arena>,
-        interner: &'a StringInterner,
-        diagnostic_handler: &'a Arc<dyn DiagnosticHandler>,
+        ctx: &'a InferenceContext<'a, 'arena>,
     ) -> Self {
         Self {
             arena,
             symbol_table,
             type_env,
             narrowing_context,
-            access_control,
-            interner,
-            diagnostic_handler,
+            access_control: ctx.access_control,
+            interner: ctx.interner,
+            diagnostic_handler: ctx.diagnostic_handler,
+            class_type_params: ctx.class_type_params,
         }
     }
 }
@@ -317,6 +327,18 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
 
                             value_type.clone()
                         }
+                    }
+                    ExpressionKind::OptionalMember(object, member) => {
+                        // obj?.x = value — infer the member type (same as non-optional)
+                        let obj_type = self.infer_expression(object)?;
+                        let member_name = self.interner.resolve(member.node);
+                        self.infer_member(&obj_type, &member_name, span)?
+                    }
+                    ExpressionKind::OptionalIndex(object, index) => {
+                        // obj?.[k] = value — infer the index type
+                        let obj_type = self.infer_expression(object)?;
+                        let _index_type = self.infer_expression(index)?;
+                        self.infer_index(&obj_type, span)?
                     }
                     _ => Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span),
                 };
@@ -876,7 +898,7 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 Ok(Type::new(TypeKind::Primitive(PrimitiveType::Boolean), span))
             }
             BinaryOp::And | BinaryOp::Or => {
-                Ok(Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span))
+                Ok(Type::new(TypeKind::Primitive(PrimitiveType::Boolean), span))
             }
             BinaryOp::NullCoalesce => self.infer_null_coalesce(left, right, span),
             BinaryOp::BitwiseAnd
@@ -1040,13 +1062,72 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
             }
             TypeKind::Reference(type_ref) => {
                 let type_name = self.interner.resolve(type_ref.name.node);
+
+                // Handle generic class instantiation — substitute type params in return types
+                let type_args = type_ref.type_arguments.as_ref();
+                let class_params = self.class_type_params.get(&type_name);
+
                 if let Some(class_members) = self.access_control.get_class_members(&type_name) {
+                    // Try exact name match first
                     for member in class_members {
                         if member.name == method_name {
-                            if let ClassMemberKind::Method { return_type, .. } = &member.kind {
-                                return Ok(return_type.clone().unwrap_or_else(|| {
-                                    Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span)
-                                }));
+                            match &member.kind {
+                                ClassMemberKind::Method { return_type, .. } => {
+                                    let rt = return_type.clone().unwrap_or_else(|| {
+                                        Type::new(TypeKind::Primitive(PrimitiveType::Unknown), span)
+                                    });
+                                    if let (Some(args), Some(params)) = (type_args, class_params) {
+                                        let instantiated =
+                                            instantiate_type(self.arena, &rt, params, args)
+                                                .map_err(|e| TypeCheckError::new(e, span))?;
+                                        return Ok(instantiated);
+                                    }
+                                    return Ok(rt);
+                                }
+                                ClassMemberKind::Getter { return_type } => {
+                                    if let (Some(args), Some(params)) = (type_args, class_params) {
+                                        let instantiated =
+                                            instantiate_type(self.arena, return_type, params, args)
+                                                .map_err(|e| TypeCheckError::new(e, span))?;
+                                        return Ok(instantiated);
+                                    }
+                                    return Ok(return_type.clone());
+                                }
+                                ClassMemberKind::Setter { .. } => {
+                                    return Ok(Type::new(
+                                        TypeKind::Primitive(PrimitiveType::Void),
+                                        span,
+                                    ));
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                    // Codegen maps get_X() → getter X, set_X() → setter X
+                    if let Some(stripped) = method_name.strip_prefix("get_") {
+                        for member in class_members {
+                            if member.name == stripped {
+                                if let ClassMemberKind::Getter { return_type } = &member.kind {
+                                    if let (Some(args), Some(params)) = (type_args, class_params) {
+                                        let instantiated =
+                                            instantiate_type(self.arena, return_type, params, args)
+                                                .map_err(|e| TypeCheckError::new(e, span))?;
+                                        return Ok(instantiated);
+                                    }
+                                    return Ok(return_type.clone());
+                                }
+                            }
+                        }
+                    }
+                    if let Some(stripped) = method_name.strip_prefix("set_") {
+                        for member in class_members {
+                            if member.name == stripped {
+                                if let ClassMemberKind::Setter { .. } = &member.kind {
+                                    return Ok(Type::new(
+                                        TypeKind::Primitive(PrimitiveType::Void),
+                                        span,
+                                    ));
+                                }
                             }
                         }
                     }
@@ -1089,7 +1170,31 @@ impl<'a, 'arena> TypeInferenceVisitor<'arena> for TypeInferrer<'a, 'arena> {
                 }
 
                 // Check access modifiers for class members (only for actual classes)
-                self.check_member_access(&type_name, member, span)?;
+                // Codegen maps get_X/set_X to getter/setter X, so try stripped name too
+                let effective_member =
+                    if self.check_member_access(&type_name, member, span).is_err() {
+                        if let Some(stripped) = member.strip_prefix("get_") {
+                            if self.check_member_access(&type_name, stripped, span).is_ok() {
+                                stripped
+                            } else {
+                                self.check_member_access(&type_name, member, span)?;
+                                member
+                            }
+                        } else if let Some(stripped) = member.strip_prefix("set_") {
+                            if self.check_member_access(&type_name, stripped, span).is_ok() {
+                                stripped
+                            } else {
+                                self.check_member_access(&type_name, member, span)?;
+                                member
+                            }
+                        } else {
+                            self.check_member_access(&type_name, member, span)?;
+                            member
+                        }
+                    } else {
+                        member
+                    };
+                let member = effective_member;
 
                 // Try to resolve the type reference to get the actual type
                 // Use lookup_type to check both type aliases and interfaces

@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -199,6 +200,17 @@ pub struct CompilerOptions {
     /// Optimization level for code generation (default: minimal)
     #[serde(default)]
     pub optimization_level: OptimizationLevel,
+
+    /// Base URL for path alias resolution (default: project root)
+    /// Path alias replacement values are resolved relative to this directory.
+    #[serde(default)]
+    pub base_url: Option<String>,
+
+    /// Path alias mappings (TypeScript-style)
+    /// Keys are patterns (may contain a single `*` wildcard), values are arrays of replacement paths.
+    /// Example: `"@/*": ["src/*"]` maps `@/components/Button` to `src/components/Button`
+    #[serde(default)]
+    pub paths: HashMap<String, Vec<String>>,
 }
 
 fn default_true() -> bool {
@@ -234,6 +246,8 @@ impl Default for CompilerOptions {
             enforce_namespace_path: false,
             output_format: OutputFormat::Readable,
             optimization_level: OptimizationLevel::Auto,
+            base_url: None,
+            paths: HashMap::new(),
         }
     }
 }
@@ -476,5 +490,59 @@ compilerOptions:
         assert_eq!(config.compiler_options.out_dir, Some("dist".to_string()));
         assert!(config.compiler_options.source_map);
         assert!(config.compiler_options.out_file.is_none()); // Not overridden
+    }
+
+    #[test]
+    fn test_deserialize_path_aliases() {
+        let yaml = r#"
+compilerOptions:
+  baseUrl: "."
+  paths:
+    "@/*": ["src/*"]
+    "@components/*": ["src/components/*"]
+    "@utils": ["src/shared/utils"]
+"#;
+        let config: CompilerConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(
+            config.compiler_options.base_url,
+            Some(".".to_string())
+        );
+        assert_eq!(config.compiler_options.paths.len(), 3);
+        assert_eq!(
+            config.compiler_options.paths.get("@/*"),
+            Some(&vec!["src/*".to_string()])
+        );
+        assert_eq!(
+            config.compiler_options.paths.get("@components/*"),
+            Some(&vec!["src/components/*".to_string()])
+        );
+        assert_eq!(
+            config.compiler_options.paths.get("@utils"),
+            Some(&vec!["src/shared/utils".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_default_paths_empty() {
+        let config = CompilerConfig::default();
+        assert!(config.compiler_options.paths.is_empty());
+        assert!(config.compiler_options.base_url.is_none());
+    }
+
+    #[test]
+    fn test_deserialize_paths_with_multiple_fallbacks() {
+        let yaml = r#"
+compilerOptions:
+  paths:
+    "*": ["./vendor/*", "./types/*"]
+"#;
+        let config: CompilerConfig = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(
+            config.compiler_options.paths.get("*"),
+            Some(&vec![
+                "./vendor/*".to_string(),
+                "./types/*".to_string()
+            ])
+        );
     }
 }
